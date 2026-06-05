@@ -1,4 +1,4 @@
-class InputCard {
+export class InputCard {
   constructor(id, btnX, btnY, targetX, targetY, rotation, btnElement, onConfirm, onCancel, sourceToken = null) {
     this.id = id;
     this.btnX = btnX;

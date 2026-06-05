@@ -1,4 +1,4 @@
-class Token {
+export class Token {
   constructor(id, x, y, rotation, title = "Nieuw idee", onStateChange) {
     this.id = id;
     this.x = x;
