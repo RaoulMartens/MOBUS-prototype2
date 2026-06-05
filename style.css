@@ -1,0 +1,545 @@
+/* Custom properties for theme */
+:root {
+  --canvas-bg: #f7f9fc;
+  --grid-color: rgba(180, 190, 205, 0.15);
+  
+  --token-bg: rgba(255, 255, 255, 0.85);
+  --token-border: rgba(0, 0, 0, 0.06);
+  --token-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 2px 10px rgba(0, 0, 0, 0.03);
+  
+  --token-selected-border: rgba(79, 70, 229, 0.35);
+  --token-selected-glow: 0 15px 40px rgba(79, 70, 229, 0.18), 0 0 0 3px rgba(79, 70, 229, 0.25);
+  
+  --button-bg: #ffffff;
+  --button-color: #1e293b;
+  --button-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  
+  --bin-bg: #fecaca;
+  --bin-color: #ef4444;
+  --bin-shadow: 0 6px 20px rgba(239, 68, 68, 0.2), 0 0 0 2px rgba(239, 68, 68, 0.2);
+  --bin-hover-bg: #ef4444;
+  --bin-hover-color: #ffffff;
+  --bin-hover-shadow: 0 8px 25px rgba(239, 68, 68, 0.45), 0 0 0 4px rgba(239, 68, 68, 0.3);
+  
+  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none; /* Disable default browser gestures */
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--canvas-bg);
+  font-family: var(--font-family);
+}
+
+/* Canvas Area */
+#canvas {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--canvas-bg);
+  background-image: 
+    radial-gradient(var(--grid-color) 1.5px, transparent 1.5px);
+  background-size: 32px 32px;
+  overflow: hidden;
+  transition: background-color 0.3s ease;
+}
+
+/* Edge Buttons */
+.edge-button {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background-color: var(--button-bg);
+  color: var(--button-color);
+  box-shadow: var(--button-shadow);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 28px;
+  font-weight: 400;
+}
+
+.edge-button:active {
+  transform: scale(0.9);
+}
+
+/* Placements */
+.edge-button.top {
+  top: 16px;
+  transform: translateX(-50%);
+}
+.edge-button.bottom {
+  bottom: 16px;
+  transform: translateX(-50%);
+}
+.edge-button.left {
+  left: 16px;
+  transform: translateY(-50%);
+}
+.edge-button.right {
+  right: 16px;
+  transform: translateY(-50%);
+}
+
+/* Bin Mode State */
+.edge-button.bin-mode {
+  background-color: var(--bin-bg);
+  color: var(--bin-color);
+  box-shadow: var(--bin-shadow);
+  animation: pulse-bin 2s infinite;
+}
+
+.edge-button.bin-mode.drag-over {
+  background-color: var(--bin-hover-bg);
+  color: var(--bin-hover-color);
+  box-shadow: var(--bin-hover-shadow);
+}
+
+/* Icon styling and centering */
+.edge-button .icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 24px;
+  height: 24px;
+}
+
+.edge-button .icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+}
+
+/* Spawning visual feedback */
+@keyframes pulse-bin {
+  0% {
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.2), 0 0 0 0px rgba(239, 68, 68, 0.2);
+  }
+  70% {
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.2), 0 0 0 8px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.2), 0 0 0 0px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Token Container */
+#token-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none; /* Make container click-through */
+  z-index: 10;
+}
+
+/* Idea Token */
+.idea-token {
+  position: absolute;
+  pointer-events: auto; /* Re-enable pointer events for individual tokens */
+  box-shadow: var(--token-shadow);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  cursor: grab;
+  /* Organic rounded shape - single axis to prevent Safari shadow/clip bugs */
+  border-radius: 95px 45px 85px 55px;
+  transform-origin: center center;
+  width: 220px;
+  height: 180px;
+  transition: box-shadow 0.2s ease, scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+  will-change: transform, width, height;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.idea-token:active {
+  cursor: grabbing;
+}
+
+/* Isolate background and backdrop-filter to ::after to fix Safari rendering box-shadow bug */
+.idea-token::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--token-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--token-border);
+  z-index: -1;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* Inner border line following the pebble shape, always visible */
+.idea-token::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 1;
+  transition: border-color 0.2s ease;
+  z-index: 1;
+}
+
+.idea-token.selected::before {
+  border-color: rgba(79, 70, 229, 0.15);
+}
+
+/* Selection State */
+.idea-token.selected {
+  z-index: 20 !important; /* Bring to front */
+}
+
+.idea-token.selected::after {
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-width: 3px;
+  border-color: #4f46e5;
+}
+
+/* Title Input styling */
+.token-title {
+  width: 85%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 18px;
+  font-weight: 500;
+  text-align: center;
+  color: #334155;
+  outline: none;
+  resize: none;
+  pointer-events: none; /* Direct touch inputs should go to token, not edit element until editing */
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+/* Editing State */
+.idea-token.editing {
+  z-index: 30 !important;
+}
+
+.idea-token.editing::after {
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-width: 3px;
+  border-color: #4f46e5;
+}
+
+/* Animation on Spawn */
+@keyframes spawn-bounce {
+  0% {
+    scale: 0.3;
+    opacity: 0;
+  }
+  70% {
+    scale: 1.08;
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+.idea-token.spawning {
+  animation: spawn-bounce 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Hide button instantly when morphing */
+.edge-button.hidden-btn {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+
+/* Input Card Styling */
+.input-card {
+  position: absolute;
+  pointer-events: auto; /* Allow interactions inside container */
+  background: var(--button-bg);
+  border: 1px solid transparent;
+  box-shadow: var(--button-shadow);
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  z-index: 50 !important;
+  will-change: left, top, width, height, border-radius, background-color, box-shadow, border-color, backdrop-filter;
+  transition: 
+    left 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    top 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    width 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    backdrop-filter 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    -webkit-backdrop-filter 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.input-card.open {
+  background: var(--token-bg);
+  border-color: var(--token-border);
+  box-shadow: var(--token-shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Content wrapper fades in when card is fully expanded */
+.input-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 350px;
+  height: 285px;
+  padding: 14px 16px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s ease-in; /* Fast fade out by default when open is removed */
+  box-sizing: border-box;
+}
+
+.input-card.open .input-card-content {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1) 0.1s; /* Delayed fade in when opening */
+}
+
+.input-card.destroying {
+  pointer-events: none;
+}
+
+.input-card.destroying .input-card-content {
+  opacity: 0;
+  transition: opacity 0.1s ease-in;
+}
+
+/* Centered Plus Icon inside starting state button */
+.input-card-plus-icon {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--button-color);
+  opacity: 1;
+  scale: 1;
+  transition: opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 5;
+}
+
+.input-card-plus-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.input-card.open .input-card-plus-icon {
+  opacity: 0;
+  scale: 0.5;
+  pointer-events: none;
+  transition: opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), scale 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.input-card.destroying .input-card-plus-icon {
+  opacity: 1;
+  scale: 1;
+  transition: opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1) 0.1s, scale 0.15s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+}
+
+/* Text Display Area (div instead of input) */
+.input-card-display {
+  width: 100%;
+  height: 42px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.65);
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-weight: 400;
+  color: #334155;
+  overflow-y: auto;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  user-select: none;
+  position: relative;
+}
+
+.input-card-placeholder {
+  position: absolute;
+  left: 14px;
+  top: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.input-card-display.error {
+  border-color: #ef4444;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+/* Custom animated caret cursor */
+.custom-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 18px;
+  background-color: #4f46e5;
+  vertical-align: -3px;
+  margin-left: 1px;
+  animation: blink-caret 1s step-end infinite;
+}
+
+@keyframes blink-caret {
+  from, to { background-color: transparent; }
+  50% { background-color: #4f46e5; }
+}
+
+/* Keyboard Layout */
+.input-card-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  flex-wrap: nowrap; /* Prevent keys from dropping to next line in WebKit */
+}
+
+.keyboard-key {
+  height: 34px;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+  transition: background-color 0.1s ease, transform 0.05s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.keyboard-key:active {
+  background: #e2e8f0;
+  transform: scale(0.95);
+}
+
+/* Wide keys */
+.keyboard-key.space {
+  flex: 5.5;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.keyboard-key.backspace {
+  flex: 3.5;
+  background: #f1f5f9;
+  font-size: 15px;
+  color: #64748b;
+}
+
+.keyboard-key.backspace:active {
+  background: #cbd5e1;
+}
+
+/* Action button row */
+.input-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.input-card-submit {
+  padding: 10px 20px;
+  border-radius: 14px;
+  border: none;
+  background: #4f46e5;
+  color: #ffffff;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+}
+
+.input-card-submit:hover {
+  background: #4338ca;
+}
+
+.input-card-cancel {
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.input-card-cancel:hover {
+  color: #334155;
+  background: rgba(0, 0, 0, 0.04);
+}

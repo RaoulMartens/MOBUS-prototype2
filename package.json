@@ -1,0 +1,13 @@
+{
+  "name": "mobus-prototype",
+  "version": "1.0.0",
+  "description": "MOBUS Tabletop Playground MVP",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}

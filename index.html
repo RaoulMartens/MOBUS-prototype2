@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>MOBUS - Interactive Tabletop Playground</title>
+  <link rel="stylesheet" href="style.css?v=11">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="canvas">
+    <!-- Edge Buttons (Plus / Bin Mode) -->
+    <!-- Top Edge -->
+    <button class="edge-button top" data-side="top" style="left: 50%;" aria-label="Spawn token top">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </span>
+    </button>
+
+    <!-- Bottom Edge -->
+    <button class="edge-button bottom" data-side="bottom" style="left: 50%;" aria-label="Spawn token bottom">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </span>
+    </button>
+
+    <!-- Left Edge -->
+    <button class="edge-button left" data-side="left" style="top: 50%;" aria-label="Spawn token left">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </span>
+    </button>
+
+    <!-- Right Edge -->
+    <button class="edge-button right" data-side="right" style="top: 50%;" aria-label="Spawn token right">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </span>
+    </button>
+
+    <!-- Token Container -->
+    <div id="token-container"></div>
+  </div>
+
+  <script src="js/token.js"></script>
+  <script src="js/inputCard.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
