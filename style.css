@@ -162,12 +162,23 @@ body, html {
   /* Organic rounded shape - single axis to prevent Safari shadow/clip bugs */
   border-radius: 95px 45px 85px 55px;
   transform-origin: center center;
-  width: 220px;
-  height: 180px;
-  transition: box-shadow 0.2s ease, scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
-  will-change: transform, width, height;
+  width: 160px;
+  height: 130px;
+  transition: 
+    box-shadow 0.2s ease, 
+    scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), 
+    opacity 0.2s ease,
+    width 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    top 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform, width, height, left, top;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+}
+
+.idea-token.dragging {
+  transition: none !important;
 }
 
 .idea-token:active {
@@ -215,7 +226,7 @@ body, html {
 
 /* Selection State */
 .idea-token.selected {
-  z-index: 20 !important; /* Bring to front */
+  z-index: 40 !important; /* Bring to front */
 }
 
 .idea-token.selected::after {
@@ -233,7 +244,7 @@ body, html {
   border: none;
   background: transparent;
   font-family: var(--font-family);
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 500;
   text-align: center;
   color: #334155;
@@ -243,10 +254,14 @@ body, html {
   word-wrap: break-word;
   white-space: pre-wrap;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.4;
+}
+
+.idea-token.selected .token-title {
+  -webkit-line-clamp: 5;
 }
 
 /* Editing State */
@@ -542,4 +557,382 @@ body, html {
 .input-card-cancel:hover {
   color: #334155;
   background: rgba(0, 0, 0, 0.04);
+}
+
+/* ==========================================
+   Token Grouping Styles
+   ========================================== */
+
+/* Group Preview Connection Line */
+#group-preview-line-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+#group-preview-line-svg line {
+  stroke: #4f46e5;
+  stroke-width: 3;
+  stroke-dasharray: 6 6;
+  opacity: 0.8;
+  animation: group-dash 30s linear infinite;
+}
+
+@keyframes group-dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+/* Group Proximity Candidate Active State */
+.idea-token.group-preview-active {
+  scale: 1.05 !important;
+}
+
+.idea-token.group-preview-active::after {
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border: 3px dashed #4f46e5;
+}
+
+/* Group Token Base Stack Styling */
+.group-token .stack-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: var(--token-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--token-border);
+  box-shadow: var(--token-shadow);
+  z-index: -2;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+  transform-origin: center center;
+}
+
+.group-token .stack-layer-1 {
+  transform: rotate(-4deg) scale(0.98);
+  z-index: -2;
+}
+
+.group-token .stack-layer-2 {
+  transform: rotate(3deg) scale(0.96);
+  z-index: -3;
+}
+
+/* Hover stack effect fan-out */
+.group-token:not(.expanded):hover .stack-layer-1 {
+  transform: rotate(-8deg) translate(-6px, -4px) scale(0.99);
+}
+
+.group-token:not(.expanded):hover .stack-layer-2 {
+  transform: rotate(6deg) translate(6px, 4px) scale(0.97);
+}
+
+/* Group Badge showing child count */
+.group-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35);
+  z-index: 15;
+  border: 2px solid #ffffff;
+  pointer-events: none;
+  transition: transform 0.2s ease, opacity 0.3s ease, scale 0.3s ease;
+}
+
+.group-token:not(.expanded):hover .group-badge {
+  transform: scale(1.15);
+}
+
+/* Expanded Group Container state styling */
+.group-token.expanded {
+  cursor: default;
+  z-index: 25 !important;
+}
+
+.group-token.expanded::before {
+  display: none;
+}
+
+.group-token.expanded::after {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--token-border);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.group-token.expanded .token-title {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  right: 24px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  pointer-events: none;
+  width: auto;
+  line-height: 1.2;
+}
+
+/* Hide stack layers when expanded */
+.group-token.expanded .stack-layer {
+  opacity: 0;
+  transform: rotate(0) scale(1) !important;
+  pointer-events: none;
+}
+
+/* Hide badge when expanded */
+.group-token.expanded .group-badge {
+  opacity: 0;
+  scale: 0.5;
+  pointer-events: none;
+}
+
+/* Child Token styling inside group */
+.idea-token.child-token {
+  scale: 0.75;
+  z-index: 30 !important;
+  transition: box-shadow 0.2s ease, scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease, left 0.3s ease, top 0.3s ease, rotate 0.3s ease;
+}
+
+/* Disable positional transitions when dragging a child token */
+.idea-token.child-token.dragging-child {
+  scale: 0.85;
+  transition: box-shadow 0.2s ease, scale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+/* Visual highlight when child is dragged outside group boundary */
+.idea-token.child-token.eject-candidate {
+  scale: 1.0 !important;
+  box-shadow: 0 15px 35px rgba(239, 68, 68, 0.25), var(--token-shadow);
+}
+
+.idea-token.child-token.eject-candidate::after {
+  border-color: #ef4444;
+  border-width: 2px;
+}
+
+/* AI Connection Suggestion Styling */
+#ai-suggestion-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 4; /* Behind tokens (10), but above background */
+}
+
+#ai-suggestion-svg path {
+  fill: none;
+  stroke: #10b981;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-dasharray: 8 6;
+  opacity: 0.65;
+  animation: ai-dash 25s linear infinite;
+  transition: opacity 0.3s ease, stroke-width 0.3s ease, stroke 0.3s ease, filter 0.3s ease;
+}
+
+/* Hover/active glow state for the visible curve path */
+#ai-suggestion-svg path.ai-suggestion-glow-path {
+  filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.7));
+  stroke-width: 5.5px;
+  stroke: #10b981;
+  opacity: 0.95;
+}
+
+/* Thicker invisible path for easy tapping/hovering */
+#ai-suggestion-svg path.ai-suggestion-hover-path {
+  stroke: transparent;
+  stroke-width: 28px;
+  pointer-events: stroke; /* Capture mouse/touch on stroke */
+  cursor: pointer;
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes ai-dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+/* Pulsing AI Indicator Midpoint Dot & Growing Circular Suggestion */
+.ai-indicator-dot {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #10b981; /* Solid green suggestion circle */
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #ffffff; /* White question mark text */
+  cursor: pointer;
+  z-index: 44; /* Below expanded z-index */
+  pointer-events: auto; /* Allow clicks */
+  transition: 
+    width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), 
+    height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), 
+    background-color 0.2s ease, 
+    box-shadow 0.3s ease, 
+    rotate 0.3s ease,
+    left 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+    top 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: ai-pulse 2s infinite;
+  will-change: left, top, width, height, transform, box-shadow;
+  box-sizing: border-box;
+}
+
+.ai-indicator-dot:hover {
+  transform: scale(1.15);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.45);
+}
+
+.ai-indicator-dot.expanded {
+  width: 210px;
+  height: auto;
+  min-height: 44px;
+  border-radius: 22px;
+  cursor: default;
+  background: #10b981;
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+  animation: none; /* Stop pulsing when expanded */
+  padding: 10px 16px;
+  z-index: 45; /* Above normal tokens */
+  transform: scale(1) !important; /* Prevent hover scale overrides when expanded */
+}
+
+/* Question mark style */
+.ai-dot-question-mark {
+  font-family: var(--font-family);
+  font-size: 19px;
+  font-weight: 700;
+  color: #ffffff;
+  transition: opacity 0.15s ease;
+  line-height: 1;
+}
+
+.ai-indicator-dot.expanded .ai-dot-question-mark {
+  opacity: 0;
+  display: none;
+}
+
+/* Expanded content layout */
+.ai-dot-expanded-content {
+  display: none;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.ai-indicator-dot.expanded .ai-dot-expanded-content {
+  display: flex;
+  animation: ai-fade-in 0.25s ease forwards 0.15s;
+}
+
+@keyframes ai-fade-in {
+  to { opacity: 1; }
+}
+
+.ai-dot-title {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 2px;
+}
+
+.ai-dot-explanation {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.3;
+  margin: 0;
+  max-width: 180px;
+  word-wrap: break-word;
+  text-align: center;
+}
+
+
+
+@keyframes ai-pulse {
+  0% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 0px rgba(16, 185, 129, 0.4);
+  }
+  70% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 0px rgba(16, 185, 129, 0);
+  }
+}
+
+/* Snapping keyframe animation for the path */
+.ai-suggestion-snapping {
+  animation: ai-snap 0.4s cubic-bezier(0.1, 0.8, 0.3, 1) forwards !important;
+  pointer-events: none;
+}
+
+@keyframes ai-snap {
+  0% {
+    stroke-dasharray: 3 8;
+    stroke-width: 2.0px;
+    opacity: 0.8;
+  }
+  40% {
+    stroke-dasharray: 1.5 80;
+    stroke-width: 1.2px;
+    opacity: 0.4;
+  }
+  100% {
+    stroke-dasharray: 0 800;
+    stroke-width: 0px;
+    opacity: 0;
+  }
+}
+
+/* Snapping keyframe animation for the dot */
+.ai-dot-snapping {
+  animation: ai-dot-snap 0.3s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards !important;
+  pointer-events: none;
+}
+
+@keyframes ai-dot-snap {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
 }

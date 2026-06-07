@@ -1,3 +1,14 @@
+export function generateDisplayTitle(text) {
+  if (!text) return '';
+  if (text.length <= 50) return text;
+  let truncated = text.substring(0, 45);
+  const lastSpace = truncated.lastIndexOf(' ');
+  if (lastSpace > 0) {
+    truncated = truncated.substring(0, lastSpace);
+  }
+  return truncated + '...';
+}
+
 export class Token {
   constructor(id, x, y, rotation, title = "Nieuw idee", onStateChange) {
     this.id = id;
@@ -5,13 +16,18 @@ export class Token {
     this.y = y;
     this.rotation = rotation; // degrees
     this.scale = 1.0;
-    this.baseWidth = 220;
-    this.baseHeight = 180;
+    this.baseWidth = 160;
+    this.baseHeight = 130;
     this.title = title;
+    this.displayTitle = generateDisplayTitle(title);
     this.selected = false;
     this.editing = false;
     this.isDragging = false;
     this.isHoveringBin = false;
+    this.isChild = false;
+    this.parentGroup = null;
+    this.downX = 0;
+    this.downY = 0;
     
     // Generate a unique, subtle, smooth pebble-like organic shape dynamically
     const r = () => Math.floor(Math.random() * 14) + 43; // Radii between 43% and 56% for subtle curves
@@ -62,7 +78,7 @@ export class Token {
     
     const title = document.createElement('div');
     title.className = 'token-title';
-    title.innerText = this.title;
+    title.innerText = this.displayTitle;
     
     el.appendChild(title);
     
@@ -85,12 +101,24 @@ export class Token {
   updateStyle() {
     if (!this.domElement) return;
     
+    // Toggle active dragging class to bypass CSS transitions
+    if (this.isDragging) {
+      this.domElement.classList.add('dragging');
+    } else {
+      this.domElement.classList.remove('dragging');
+    }
+
+    const currentWidth = this.selected ? this.baseWidth * 1.5 : this.baseWidth;
+    const currentHeight = this.selected ? this.baseHeight * 1.5 : this.baseHeight;
+
     // Position coordinates: x and y represent the center of the token.
-    const tx = this.x - this.baseWidth / 2;
-    const ty = this.y - this.baseHeight / 2;
+    const tx = this.x - currentWidth / 2;
+    const ty = this.y - currentHeight / 2;
     
     this.domElement.style.left = `${tx}px`;
     this.domElement.style.top = `${ty}px`;
+    this.domElement.style.width = `${currentWidth}px`;
+    this.domElement.style.height = `${currentHeight}px`;
     this.domElement.style.rotate = `${this.rotation}deg`;
     
     const displayScale = this.isHoveringBin ? this.scale * 0.45 : this.scale;
@@ -100,8 +128,14 @@ export class Token {
     // Toggle active classes
     if (this.selected) {
       this.domElement.classList.add('selected');
+      if (this.titleElement) {
+        this.titleElement.innerText = this.title;
+      }
     } else {
       this.domElement.classList.remove('selected');
+      if (this.titleElement) {
+        this.titleElement.innerText = this.displayTitle;
+      }
     }
     
     if (this.editing) {
@@ -130,6 +164,13 @@ export class Token {
     if (this.editing) return; // Ignore gesture/drag if typing
     
     e.stopPropagation();
+    
+    this.downX = e.clientX;
+    this.downY = e.clientY;
+    
+    if (this.isChild && this.domElement) {
+      this.domElement.classList.add('dragging-child');
+    }
     
     // Push or update pointer details
     const ptrIndex = this.activePointers.findIndex(p => p.pointerId === e.pointerId);
@@ -251,13 +292,24 @@ export class Token {
     
     e.stopPropagation();
     
+    const dx = e.clientX - this.downX;
+    const dy = e.clientY - this.downY;
+    const isTap = Math.hypot(dx, dy) < 6;
+    
     this.activePointers.splice(ptrIndex, 1);
     elReleaseCapture(this.domElement, e.pointerId);
+    
+    if (this.isChild && this.domElement) {
+      this.domElement.classList.remove('dragging-child');
+    }
     
     if (this.activePointers.length === 0) {
       // All dragging complete
       this.isDragging = false;
       this.triggerChange('dragend');
+      if (isTap) {
+        this.triggerChange('tap');
+      }
     } else if (this.activePointers.length === 1) {
       // Transited from multi-touch back to single finger drag.
       // Re-anchor coordinates with remaining pointer to prevent jump.
@@ -270,6 +322,7 @@ export class Token {
   }
   
   applyBoundaries() {
+    if (this.isChild) return;
     const w = this.baseWidth * this.scale;
     const h = this.baseHeight * this.scale;
     
@@ -294,7 +347,7 @@ export class Token {
     this.editing = false;
     if (newTitle !== undefined && newTitle !== null) {
       this.title = newTitle;
-      this.titleElement.innerText = this.title;
+      this.displayTitle = generateDisplayTitle(newTitle);
     }
     this.updateStyle();
   }
