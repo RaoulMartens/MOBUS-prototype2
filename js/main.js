@@ -1088,10 +1088,9 @@ class CanvasManager {
         const isActive = this.activeSuggestion && (this.activeSuggestion.pairKey === pairKey);
         
         if (isActive) {
+          // Sticky: always keep the current suggestion unless it's broken/dismissed
           qualifies = true;
-          if (matchesContent) {
-            score -= 100;
-          }
+          score = -Infinity;
         } else if (dist < 280) {
           qualifies = true;
           if (matchesContent) {
