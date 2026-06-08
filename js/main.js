@@ -916,17 +916,13 @@ class CanvasManager {
       dot.style.scale = '1';
     }
     
-    // Position the dot: when expanded, center the pill at the midpoint
+    // Position the dot directly at its center coordinates (centered via CSS transform translate(-50%, -50%))
+    dot.style.left = `${dotX}px`;
+    dot.style.top = `${dotY}px`;
+    
     if (isExpanded) {
-      const expandedW = 210;
-      const expandedH = dot.offsetHeight || 60;
-      dot.style.left = `${dotX - expandedW / 2}px`;
-      dot.style.top = `${dotY - expandedH / 2}px`;
       // Continuously enforce repulsion while expanded
       this.repelTokensFromExpandedDot(tA, tB, dotX, dotY);
-    } else {
-      dot.style.left = `${dotX - 16}px`;
-      dot.style.top = `${dotY - 16}px`;
     }
     dot.style.rotate = `${rotation}deg`;
     
@@ -976,13 +972,8 @@ class CanvasManager {
     dot.classList.add('expanded');
     dot.style.opacity = '1';
     dot.style.scale = '1';
-    // Use actual rendered size for centering
-    requestAnimationFrame(() => {
-      const expandedW = 210;
-      const expandedH = dot.offsetHeight || 60;
-      dot.style.left = `${dotX - expandedW / 2}px`;
-      dot.style.top = `${dotY - expandedH / 2}px`;
-    });
+    dot.style.left = `${dotX}px`;
+    dot.style.top = `${dotY}px`;
     dot.style.animation = 'none'; // Stop pulsing
     
     // Push tokens away
