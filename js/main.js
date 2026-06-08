@@ -742,8 +742,8 @@ class CanvasManager {
     // Dynamic physical thresholds
     const isClose = dist < 130;
     const matchesContent = checkThemeMatch(tA.title, tB.title);
-    const softThreshold = matchesContent ? 280 : 200;
-    const breakThreshold = matchesContent ? 440 : 320;
+    const softThreshold = matchesContent ? 350 : 260;
+    const breakThreshold = matchesContent ? 600 : 480;
     
     // Snapping / Breaking Suggestion (snaps immediately when dragged past breakThreshold)
     if (dist > breakThreshold) {
@@ -788,12 +788,12 @@ class CanvasManager {
     
     // Curve straightens (gets tighter/strakker) under tension progress
     const curveOffset = Math.min(dist * 0.15, 60);
-    const finalCurveOffset = Math.max(4, curveOffset * (1 - progress * 0.9));
+    const finalCurveOffset = Math.max(2, curveOffset * (1 - progress * 0.95));
     const cpX = midX - finalNx * finalCurveOffset;
     const cpY = midY - finalNy * finalCurveOffset;
     
-    // Progress-driven vibration intensity (subtle jitter Amt to prevent over-jittering)
-    const jitterAmt = progress * 1.5;
+    // Progress-driven vibration intensity — exponential ramp for rubber band feel
+    const jitterAmt = progress * progress * 8;
     
     // Apply jitter/vibration to control points under tension when actively dragging
     let finalCpX = cpX;
@@ -809,8 +809,8 @@ class CanvasManager {
     
     // Apply jitter/vibration directly to indicator dot
     if (progress > 0 && isDraggingEither) {
-      dotX += (Math.random() - 0.5) * (jitterAmt * 0.5);
-      dotY += (Math.random() - 0.5) * (jitterAmt * 0.5);
+      dotX += (Math.random() - 0.5) * (jitterAmt * 0.6);
+      dotY += (Math.random() - 0.5) * (jitterAmt * 0.6);
     }
     
     const pathD = `M ${tA.x} ${tA.y} Q ${finalCpX} ${finalCpY} ${tB.x} ${tB.y}`;
@@ -828,16 +828,21 @@ class CanvasManager {
         path.classList.remove('ai-suggestion-glow-path');
         
         if (progress > 0) {
-          // Under tension: line gets thinner (min 2.5px), dashes shorter (min 4px), gap wider, opacity decreases slightly
-          const strokeW = Math.max(2.5, 5.5 * (1 - progress * 0.5));
-          const dashSize = Math.max(4.0, 12 * (1 - progress * 0.6));
-          const gapSize = 8 + progress * 12;
-          const opacityVal = 0.65 - progress * 0.15;
+          // Rubber band tension: dramatic thinning, wider gaps, color drains out
+          const strokeW = Math.max(1.0, 5.5 * (1 - progress * 0.82));
+          const dashSize = Math.max(2.0, 12 * (1 - progress * 0.85));
+          const gapSize = 8 + progress * 24;
+          const opacityVal = 0.65 - progress * 0.4;
+          
+          // Color shifts from mint-green to pale gray-green as it stretches
+          const r = Math.round(16 + progress * 140);  // 16 → 156
+          const g = Math.round(185 - progress * 60);   // 185 → 125
+          const b = Math.round(129 - progress * 30);   // 129 → 99
           
           path.style.strokeWidth = `${strokeW}px`;
           path.style.strokeDasharray = `${dashSize} ${gapSize}`;
           path.style.opacity = opacityVal.toString();
-          path.style.stroke = '';
+          path.style.stroke = `rgb(${r}, ${g}, ${b})`;
         } else {
           // Reset inline styles to default CSS
           path.style.strokeWidth = '';
@@ -925,12 +930,24 @@ class CanvasManager {
     }
     dot.style.rotate = `${rotation}deg`;
     
-    // Adjust pulse speed based on progress
-    if (progress > 0 && !isExpanded) {
-      const duration = Math.max(0.4, 2.0 * (1 - progress * 0.75));
-      dot.style.animationDuration = `${duration}s`;
-    } else if (!isExpanded) {
+    // Adjust dot appearance based on tension progress
+    if (isExpanded) {
+      // Expanded card must always be fully visible and readable
+      dot.style.scale = '1';
+      dot.style.opacity = '1';
       dot.style.animationDuration = '';
+    } else if (progress > 0) {
+      const duration = Math.max(0.3, 2.0 * (1 - progress * 0.85));
+      dot.style.animationDuration = `${duration}s`;
+      // Dot shrinks and fades as rubber band stretches
+      const dotScale = Math.max(0.5, 1 - progress * 0.5);
+      const dotOpacity = Math.max(0.3, 1 - progress * 0.6);
+      dot.style.scale = dotScale.toString();
+      dot.style.opacity = dotOpacity.toString();
+    } else {
+      dot.style.animationDuration = '';
+      dot.style.scale = '1';
+      dot.style.opacity = '1';
     }
     
     if (hoverPath) {
@@ -957,8 +974,10 @@ class CanvasManager {
       explanationEl.textContent = expl;
     }
     
-    // Expand the dot
+    // Expand the dot — force full visibility regardless of prior tension state
     dot.classList.add('expanded');
+    dot.style.opacity = '1';
+    dot.style.scale = '1';
     // Use actual rendered size for centering
     requestAnimationFrame(() => {
       const expandedW = 210;
