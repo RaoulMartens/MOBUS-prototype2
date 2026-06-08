@@ -939,11 +939,9 @@ class CanvasManager {
     } else if (progress > 0) {
       const duration = Math.max(0.3, 2.0 * (1 - progress * 0.85));
       dot.style.animationDuration = `${duration}s`;
-      // Dot shrinks and fades as rubber band stretches
       const dotScale = Math.max(0.5, 1 - progress * 0.5);
-      const dotOpacity = Math.max(0.3, 1 - progress * 0.6);
       dot.style.scale = dotScale.toString();
-      dot.style.opacity = dotOpacity.toString();
+      dot.style.opacity = '1';
     } else {
       dot.style.animationDuration = '';
       dot.style.scale = '1';
