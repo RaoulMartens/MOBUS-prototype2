@@ -1138,4 +1138,21 @@ window.addEventListener('DOMContentLoaded', () => {
   window.canvasManager = new CanvasManager();
   window.Token = Token;
   window.GroupToken = GroupToken;
+
+  // Prevent double-tap to zoom on iOS/mobile devices
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, { passive: false });
+
+  // Prevent pinch-to-zoom on iOS/mobile devices
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length > 1) {
+      e.preventDefault();
+    }
+  }, { passive: false });
 });
