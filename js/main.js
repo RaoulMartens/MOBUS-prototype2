@@ -687,14 +687,39 @@ class CanvasManager {
       svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       svg.id = "ai-suggestion-svg";
       
+      // Create defs and mask for splitting the connection line at the dot/card boundary
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      const mask = document.createElementNS("http://www.w3.org/2000/svg", "mask");
+      mask.setAttribute("id", "ai-suggestion-mask");
+      
+      const whiteRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      whiteRect.setAttribute("width", "100%");
+      whiteRect.setAttribute("height", "100%");
+      whiteRect.setAttribute("fill", "white");
+      mask.appendChild(whiteRect);
+      
+      const blackRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      blackRect.setAttribute("id", "ai-mask-cutout");
+      blackRect.setAttribute("fill", "black");
+      blackRect.setAttribute("width", "32");
+      blackRect.setAttribute("height", "32");
+      blackRect.setAttribute("rx", "16");
+      blackRect.setAttribute("ry", "16");
+      mask.appendChild(blackRect);
+      
+      defs.appendChild(mask);
+      svg.appendChild(defs);
+      
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.id = "ai-suggestion-path";
       path.style.opacity = '0';
+      path.setAttribute("mask", "url(#ai-suggestion-mask)");
       svg.appendChild(path);
       
       const hoverPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
       hoverPath.id = "ai-suggestion-hover-path";
       hoverPath.setAttribute('class', 'ai-suggestion-hover-path');
+      hoverPath.setAttribute("mask", "url(#ai-suggestion-mask)");
       svg.appendChild(hoverPath);
       
       document.getElementById('canvas').appendChild(svg);
@@ -714,6 +739,8 @@ class CanvasManager {
       this.hideAISuggestion(true);
       dot = null;
     }
+    
+    const isExpanded = dot && dot.classList.contains('expanded');
     
     const dx = tB.x - tA.x;
     const dy = tB.y - tA.y;
@@ -817,7 +844,14 @@ class CanvasManager {
     if (path) {
       path.setAttribute('d', pathD);
       
-      if (isClose && isDraggingEither) {
+      if (isExpanded) {
+        // Expanded: stable, thick, glowing green line connecting tokens to card
+        path.classList.add('ai-suggestion-glow-path');
+        path.style.strokeWidth = '6px';
+        path.style.strokeDasharray = '10 6';
+        path.style.opacity = '1.0';
+        path.style.stroke = '#10b981';
+      } else if (isClose && isDraggingEither) {
         // Dragged closer: stable, thick, glowing green line
         path.classList.add('ai-suggestion-glow-path');
         path.style.strokeWidth = '6.5px';
@@ -866,8 +900,6 @@ class CanvasManager {
     }
     
     // Midpoint indicator dot
-    const isExpanded = dot && dot.classList.contains('expanded');
-    
     if (!dot) {
       dot = document.createElement('div');
       dot.id = 'ai-suggestion-dot';
@@ -919,6 +951,25 @@ class CanvasManager {
     // Position the dot directly at its center coordinates (centered via CSS transform translate(-50%, -50%))
     dot.style.left = `${dotX}px`;
     dot.style.top = `${dotY}px`;
+    
+    // Update SVG mask cutout position and size
+    const cutout = document.getElementById('ai-mask-cutout');
+    if (cutout) {
+      cutout.style.transform = `translate(${dotX}px, ${dotY}px) translate(-50%, -50%)`;
+      if (isExpanded) {
+        const expandedW = 210;
+        const expandedH = dot.offsetHeight || 60;
+        cutout.setAttribute('width', expandedW.toString());
+        cutout.setAttribute('height', expandedH.toString());
+        cutout.setAttribute('rx', '22');
+        cutout.setAttribute('ry', '22');
+      } else {
+        cutout.setAttribute('width', '32');
+        cutout.setAttribute('height', '32');
+        cutout.setAttribute('rx', '16');
+        cutout.setAttribute('ry', '16');
+      }
+    }
     
     if (isExpanded) {
       // Continuously enforce repulsion while expanded
@@ -976,6 +1027,18 @@ class CanvasManager {
     dot.style.top = `${dotY}px`;
     dot.style.animation = 'none'; // Stop pulsing
     
+    // Update the SVG mask cutout to match the expanded card size immediately
+    const cutout = document.getElementById('ai-mask-cutout');
+    if (cutout) {
+      const expandedW = 210;
+      const expandedH = dot.offsetHeight || 60;
+      cutout.style.transform = `translate(${dotX}px, ${dotY}px) translate(-50%, -50%)`;
+      cutout.setAttribute('width', expandedW.toString());
+      cutout.setAttribute('height', expandedH.toString());
+      cutout.setAttribute('rx', '22');
+      cutout.setAttribute('ry', '22');
+    }
+    
     // Push tokens away
     this.repelTokensFromExpandedDot(tA, tB, dotX, dotY);
   }
@@ -987,6 +1050,15 @@ class CanvasManager {
     dot.classList.remove('expanded');
     dot.style.animation = ''; // Resume pulsing
     dot.style.animationDuration = '';
+    
+    // Update the SVG mask cutout back to collapsed state immediately
+    const cutout = document.getElementById('ai-mask-cutout');
+    if (cutout) {
+      cutout.setAttribute('width', '32');
+      cutout.setAttribute('height', '32');
+      cutout.setAttribute('rx', '16');
+      cutout.setAttribute('ry', '16');
+    }
     
     // Re-run positioning so the dot snaps back to collapsed offset
     this.updateAISuggestions();

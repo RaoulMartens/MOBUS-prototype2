@@ -743,6 +743,17 @@ body, html {
   z-index: 4; /* Behind tokens (10), but above background */
 }
 
+/* SVG Mask Cutout for splitting the line exactly at the dot/card boundary */
+#ai-mask-cutout {
+  transform-origin: center center;
+  transform-box: fill-box;
+  transition: 
+    width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), 
+    height 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    rx 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+    ry 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 #ai-suggestion-svg path {
   fill: none;
   stroke: #10b981;
