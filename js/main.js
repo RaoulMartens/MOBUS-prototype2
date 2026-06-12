@@ -3,11 +3,15 @@ import { Token } from './token.js';
 import { GroupToken } from './groupToken.js';
 import { generateGroupName, checkThemeMatch, getThemeExplanation } from './nameGenerator.js';
 
-const PLUS_ICON = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-  <line x1="12" y1="5" x2="12" y2="19"></line>
-  <line x1="5" y1="12" x2="19" y2="12"></line>
+const PLANT_ICON = `
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
+  <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
+  <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
 </svg>`;
+
+const PLANT_LABEL = 'plant idee';
+const BIN_LABEL = 'snoei';
 
 const BIN_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -42,6 +46,11 @@ class CanvasManager {
     this.smellEffectsEnabled = false;
     this.soundEffectsEnabled = true;
     
+    // Empty state tracking
+    this.emptyStateVisible = false;
+    this.emptyStateOverlay = null;
+    this.exampleTokenIds = new Set();
+    
     this.setupEdgeButtons();
     this.setupBackgroundDeselect();
     this.setupWindowResize();
@@ -58,6 +67,26 @@ class CanvasManager {
     // Setup state management for navigation flow
     this.setupStateManagement();
     this.transitionTo('welcome');
+  }
+
+  getEdgeButtonCenter(btn) {
+    const target = btn.querySelector('.icon') || btn;
+    const rect = target.getBoundingClientRect();
+    return {
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2
+    };
+  }
+
+  getPlantButtonAriaLabel(btn) {
+    const sideLabels = {
+      top: 'boven',
+      bottom: 'beneden',
+      left: 'links',
+      right: 'rechts'
+    };
+    const side = sideLabels[btn.dataset.side] || 'deze zijde';
+    return `Plant idee vanaf ${side}`;
   }
   
   setupGroupPreviewLine() {
@@ -90,9 +119,7 @@ class CanvasManager {
   spawnTokenFromButton(btn) {
     if (this.silenceModeActive) return;
     const side = btn.dataset.side;
-    const rect = btn.getBoundingClientRect();
-    const btnX = rect.left + rect.width / 2;
-    const btnY = rect.top + rect.height / 2;
+    const { x: btnX, y: btnY } = this.getEdgeButtonCenter(btn);
     
     let spawnX = btnX;
     let spawnY = btnY;
@@ -113,6 +140,9 @@ class CanvasManager {
       spawnX = btnX - offset;
       rotation = 270;
     }
+    
+    // Dismiss empty state welcome text when user creates a new token
+    this.dismissEmptyState();
     
     const inputCardId = this.tokenIdCounter++;
     new InputCard(
@@ -674,6 +704,14 @@ class CanvasManager {
     }
     
     this.hideAISuggestion(true);
+    
+    // Clean up empty state overlay
+    if (this.emptyStateOverlay && this.emptyStateOverlay.parentNode) {
+      this.emptyStateOverlay.remove();
+    }
+    this.emptyStateOverlay = null;
+    this.emptyStateVisible = false;
+    this.exampleTokenIds.clear();
   }
 
   updateGrowthVisualization() {
@@ -681,14 +719,19 @@ class CanvasManager {
       title: g.title,
       childCount: g.childTokensData.length
     }));
-    const soloIdeasCount = this.tokens.filter(t => t.type !== 'group' && !t.isChild).length;
+    const soloIdeas = this.tokens.filter(t => t.type !== 'group' && !t.isChild).map(t => ({
+      id: t.id,
+      title: t.title
+    }));
     
     // Count total child ideas + solo ideas
-    const totalIdeas = soloIdeasCount + groups.reduce((acc, g) => acc + g.childCount, 0);
+    const totalIdeas = soloIdeas.length + groups.reduce((acc, g) => acc + g.childCount, 0);
     
     // Get session title from input
     const sessionTitleInput = document.getElementById('summary-session-title');
     const sessionTitle = sessionTitleInput ? sessionTitleInput.value : 'Creatieve Groeisessie';
+    
+    const isInteracting = this.activeDragCount > 0 || this.tokens.some(t => t.editing);
     
     // Broadcast state update to the separate wall screen
     if (this.broadcastChannel) {
@@ -696,31 +739,63 @@ class CanvasManager {
         type: 'state-update',
         data: {
           totalIdeas,
-          soloIdeasCount,
+          soloIdeas,
           groups,
           sessionTitle,
-          activeState: this.currentState
+          activeState: this.currentState,
+          isInteracting,
+          createdConnections: this.createdConnections,
+          lastActivityTime: this.lastActivityTime
         }
       });
     }
   }
 
   spawnInitialTokens() {
-    // Spawn two central demo tokens facing different sides of the table
     const w = window.innerWidth;
     const h = window.innerHeight;
     
+    // Create the welcome overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'empty-state-overlay';
+    overlay.innerHTML = `
+      <h2 class="empty-state-title">Fijn dat jullie er zijn!</h2>
+      <p class="empty-state-subtitle">Voeg een idee toe of probeer een voorbeeldtoken.</p>
+    `;
+    document.getElementById('canvas').appendChild(overlay);
+    this.emptyStateOverlay = overlay;
+    this.emptyStateVisible = true;
+    
+    // Spawn two example tokens – both rotation 0 so they're readable from the main direction
     const id1 = this.tokenIdCounter++;
-    const token1 = new Token(id1, w * 0.4, h * 0.5, 0, "Sleep mij naar een rand om te snoeien", (t, type) => this.handleTokenStateChange(t, type));
+    const token1 = new Token(id1, w * 0.42, h * 0.55, 0, "Dubbel tik om mij te veranderen", (t, type) => this.handleTokenStateChange(t, type));
     token1.applyBoundaries();
     token1.updateStyle();
     this.tokens.push(token1);
+    this.exampleTokenIds.add(id1);
     
     const id2 = this.tokenIdCounter++;
-    const token2 = new Token(id2, w * 0.6, h * 0.5, 180, "Dubbelklik om te verzorgen", (t, type) => this.handleTokenStateChange(t, type));
+    const token2 = new Token(id2, w * 0.58, h * 0.55, 0, "Sleep mij naar een ander idee", (t, type) => this.handleTokenStateChange(t, type));
     token2.applyBoundaries();
     token2.updateStyle();
     this.tokens.push(token2);
+    this.exampleTokenIds.add(id2);
+  }
+  
+  dismissEmptyState() {
+    if (!this.emptyStateVisible) return;
+    this.emptyStateVisible = false;
+    
+    if (this.emptyStateOverlay) {
+      this.emptyStateOverlay.classList.add('hidden');
+      // Remove from DOM after transition completes
+      setTimeout(() => {
+        if (this.emptyStateOverlay && this.emptyStateOverlay.parentNode) {
+          this.emptyStateOverlay.remove();
+        }
+        this.emptyStateOverlay = null;
+      }, 650);
+    }
   }
   
   handleTokenStateChange(token, type) {
@@ -728,6 +803,7 @@ class CanvasManager {
     if (type === 'dragstart') {
       this.activeDragCount++;
       this.updateBinMode();
+      this.updateGrowthVisualization();
     } else if (type === 'dragmove') {
       this.checkBinCollisions(token);
       this.resolveGroupCollisions(token);
@@ -997,6 +1073,9 @@ class CanvasManager {
   
   editToken(token) {
     if (this.silenceModeActive) return;
+    
+    // Dismiss empty state welcome text when user edits any token
+    this.dismissEmptyState();
     // Hide the token visually during editing
     if (token.domElement) {
       token.domElement.style.opacity = '0';
@@ -1034,6 +1113,10 @@ class CanvasManager {
         if (token.domElement) {
           token.domElement.style.opacity = '1';
           token.domElement.style.pointerEvents = 'auto';
+        }
+        // Remove from example tokens since the user modified it
+        if (text && text.trim() !== "" && text !== "Dubbel tik om mij te veranderen" && text !== "Sleep mij naar een ander idee") {
+          this.exampleTokenIds.delete(token.id);
         }
         this.lastActivityTime = Date.now();
         this.updateAISuggestions();
@@ -1401,7 +1484,6 @@ class CanvasManager {
   
   updateBinMode() {
     const buttons = document.querySelectorAll('.edge-button');
-    const sideRotation = { top: '180deg', bottom: '0deg', left: '90deg', right: '270deg' };
     
     // Find all currently dragged tokens
     const draggingTokens = this.tokens.filter(t => t.isDragging && !t.isChild);
@@ -1414,9 +1496,7 @@ class CanvasManager {
       let minDistance = Infinity;
       
       buttons.forEach(btn => {
-        const rect = btn.getBoundingClientRect();
-        const btnCenterX = rect.left + rect.width / 2;
-        const btnCenterY = rect.top + rect.height / 2;
+        const { x: btnCenterX, y: btnCenterY } = this.getEdgeButtonCenter(btn);
         
         const dist = Math.hypot(token.x - btnCenterX, token.y - btnCenterY);
         if (dist < minDistance) {
@@ -1432,18 +1512,21 @@ class CanvasManager {
     
     buttons.forEach(btn => {
       const icon = btn.querySelector('.icon');
+      const label = btn.querySelector('.edge-button-label');
       if (binTargetButtons.has(btn)) {
         if (!btn.classList.contains('bin-mode')) {
           btn.classList.add('bin-mode');
           icon.innerHTML = BIN_ICON;
-          icon.style.rotate = sideRotation[btn.dataset.side] || '0deg';
+          if (label) label.textContent = BIN_LABEL;
+          btn.setAttribute('aria-label', 'Verwijder idee');
         }
       } else {
         if (btn.classList.contains('bin-mode')) {
           btn.classList.remove('bin-mode');
           btn.classList.remove('drag-over');
-          icon.innerHTML = PLUS_ICON;
-          icon.style.rotate = '';
+          icon.innerHTML = PLANT_ICON;
+          if (label) label.textContent = PLANT_LABEL;
+          btn.setAttribute('aria-label', this.getPlantButtonAriaLabel(btn));
         }
       }
     });
@@ -1455,9 +1538,7 @@ class CanvasManager {
     let hoveringAny = false;
     
     buttons.forEach(btn => {
-      const rect = btn.getBoundingClientRect();
-      const btnCenterX = rect.left + rect.width / 2;
-      const btnCenterY = rect.top + rect.height / 2;
+      const { x: btnCenterX, y: btnCenterY } = this.getEdgeButtonCenter(btn);
       
       const dist = Math.hypot(draggedToken.x - btnCenterX, draggedToken.y - btnCenterY);
       
@@ -1492,9 +1573,7 @@ class CanvasManager {
     let deleted = false;
     
     buttons.forEach(btn => {
-      const rect = btn.getBoundingClientRect();
-      const btnCenterX = rect.left + rect.width / 2;
-      const btnCenterY = rect.top + rect.height / 2;
+      const { x: btnCenterX, y: btnCenterY } = this.getEdgeButtonCenter(btn);
       
       const dist = Math.hypot(token.x - btnCenterX, token.y - btnCenterY);
       
@@ -1512,6 +1591,7 @@ class CanvasManager {
   }
   
   deleteToken(token) {
+    this.exampleTokenIds.delete(token.id);
     const el = token.domElement;
     if (el) {
       el.style.transition = 'all 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045)';
@@ -1761,6 +1841,7 @@ class CanvasManager {
     
     let dotX, dotY;
     let rotation = 0;
+    let dist = 0;
     
     if (isOneTokenNudge || !tB) {
       // Hide SVG paths for single-token nudges
@@ -1775,7 +1856,7 @@ class CanvasManager {
       // 2-token/Timer nudge: position at midpoint and show connection line
       const dx = tB.x - tA.x;
       const dy = tB.y - tA.y;
-      const dist = Math.hypot(dx, dy);
+      dist = Math.hypot(dx, dy);
       if (dist === 0) return;
       
       const midX = (tA.x + tB.x) / 2;
@@ -2147,8 +2228,19 @@ class CanvasManager {
     this.activeSuggestion = null;
   }
 
+  hasUserAddedIdeas() {
+    if (this.emptyStateVisible) return false;
+    return this.tokens.some(t => t.type !== 'group' && !t.isChild && !this.exampleTokenIds.has(t.id));
+  }
+
   updateAISuggestions() {
     this.updateGrowthVisualization();
+
+    if (!this.hasUserAddedIdeas()) {
+      this.twoTokensTime = null;
+      this.hideAISuggestion();
+      return;
+    }
 
     const ideas = this.tokens.filter(t => t.type !== 'group' && !t.isChild);
     

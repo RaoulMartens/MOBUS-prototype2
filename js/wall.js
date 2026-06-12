@@ -1,192 +1,651 @@
 // Establish BroadcastChannel for local cross-tab communication
 const channel = new BroadcastChannel('mobus-session');
 
-// DOM Elements
-const trunkEl = document.getElementById('wall-trunk');
-const branchesContainer = document.getElementById('wall-branches');
-const leavesContainer = document.getElementById('wall-leaves');
-const titleEl = document.getElementById('wall-session-title');
-const statusTextEl = document.getElementById('wall-status-text');
-const ideasStatEl = document.getElementById('wall-stat-ideas');
-const groupsStatEl = document.getElementById('wall-stat-groups');
-const particlesContainer = document.getElementById('particles');
+const canvas = document.getElementById('wall-canvas');
+const ctx = canvas.getContext('2d');
+let width, height;
 
-// State Cache
-let currentState = {
-  totalIdeas: 0,
-  soloIdeasCount: 0,
-  groups: [],
-  sessionTitle: 'Creatieve Speelruimte',
-  activeState: 'welcome'
-};
+// Hashing helper for stable horizontal positions
+function hashStringToNum(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+}
 
-// Initialize Background Particles
-function initParticles() {
-  if (!particlesContainer) return;
-  particlesContainer.innerHTML = '';
-  
-  for (let i = 0; i < 20; i++) {
-    const p = document.createElement('div');
-    p.className = 'ambient-leaf';
-    p.style.left = `${Math.random() * 100}vw`;
-    p.style.top = `${Math.random() * 100}vh`;
-    p.style.opacity = `${Math.random() * 0.4 + 0.1}`;
-    p.style.scale = `${Math.random() * 0.6 + 0.4}`;
+// Seeded PRNG for stable plant structures
+function SeededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+// Spore / Seed particle drifting across the landscape
+class SeedParticle {
+  constructor(w, h, randomizeX = true) {
+    this.x = randomizeX ? Math.random() * w : -20;
+    this.y = Math.random() * h * 0.8;
+    this.vx = Math.random() * 15 + 15; // drift velocity right
+    this.vy = (Math.random() - 0.4) * 8; // slow vertical wander
+    this.scale = Math.random() * 0.5 + 0.4;
+    this.phase = Math.random() * Math.PI * 2;
+    this.opacity = Math.random() * 0.35 + 0.15;
+  }
+
+  tick(dt, windVal, w, h) {
+    const windMultiplier = 1.0 + windVal * 5.0;
+    this.x += this.vx * windMultiplier * dt;
+    this.y += (this.vy + Math.sin(this.phase + this.x * 0.015) * 8) * dt;
     
-    // Custom drift animation duration & delay
-    p.style.animationDuration = `${Math.random() * 12 + 8}s`;
-    p.style.animationDelay = `${Math.random() * -10}s`;
-    
-    particlesContainer.appendChild(p);
+    if (this.x > w + 20) {
+      this.x = -20;
+      this.y = Math.random() * h * 0.8;
+    }
+  }
+
+  draw(cContext) {
+    cContext.save();
+    cContext.translate(this.x, this.y);
+    cContext.beginPath();
+    cContext.moveTo(0, 0);
+    cContext.lineTo(-8 * this.scale, 8 * this.scale);
+    cContext.strokeStyle = `rgba(111, 115, 93, ${this.opacity * 0.6})`;
+    cContext.lineWidth = 1 * this.scale;
+    cContext.stroke();
+
+    cContext.beginPath();
+    cContext.arc(0, 0, 3 * this.scale, 0, Math.PI * 2);
+    cContext.fillStyle = `rgba(154, 159, 85, ${this.opacity})`;
+    cContext.fill();
+    cContext.restore();
   }
 }
 
-// Redraw Tree based on tabletop data
-function updateTree() {
-  const { totalIdeas, soloIdeasCount, groups } = currentState;
-  
-  // 1. Calculate Trunk parameters
-  // Growth height starts at 50px, goes up to 160px
-  const baseTrunkHeight = 50;
-  const maxGrowthHeight = 110;
-  const growthFactor = Math.min(1.0, totalIdeas / 8);
-  const trunkHeight = baseTrunkHeight + (growthFactor * maxGrowthHeight);
-  
-  // Trunk thickness starts at 6px, goes up to 18px
-  const trunkWidth = 6 + (growthFactor * 10);
-  
-  const trunkStartY = 360;
-  const trunkEndY = trunkStartY - trunkHeight;
-  
-  // Curved trunk for more organic pebble-feel
-  const trunkCpX = 200 - (groups.length * 4); // bends slightly as branches grow
-  trunkEl.setAttribute('d', `M 200 ${trunkStartY} Q ${trunkCpX} ${trunkStartY - trunkHeight/2} 200 ${trunkEndY}`);
-  trunkEl.setAttribute('stroke-width', trunkWidth.toString());
-  
-  // Clear dynamic branches and leaves
-  branchesContainer.innerHTML = '';
-  leavesContainer.innerHTML = '';
-  
-  // Colors for branches / groups (categorized growth colors matching the design system)
-  const groupColors = [
-    'var(--color-primary-green)',
-    'var(--color-sage)',
-    'var(--color-harvest)',
-    'var(--color-nutrient)',
-    'var(--color-text-muted)',
-    'var(--color-compost)'
-  ];
-  
-  // 2. Generate Branches (for groups)
-  groups.forEach((g, index) => {
-    // Branch heights are distributed along the upper half of the trunk
-    const ratio = (index + 1) / (groups.length + 1);
-    const branchStartY = trunkEndY + (trunkHeight * 0.55 * ratio);
+// Cluster Plant representing an idea group / cluster
+class ClusterPlant {
+  constructor(title, childCount) {
+    this.title = title;
+    this.childCount = childCount;
+    this.currentGrowth = 0;
+    this.targetGrowth = 1;
+    this.wiggleOffset = Math.random() * Math.PI * 2;
+    this.x = 0;
+    this.randomSeed = hashStringToNum(title) || 123;
+    this.branches = [];
+    this.blossoms = [];
+    this.generateStructure();
+  }
+
+  update(childCount) {
+    if (this.childCount !== childCount) {
+      this.childCount = childCount;
+      this.generateStructure();
+    }
+    this.targetGrowth = 1;
+  }
+
+  generateStructure() {
+    const rng = SeededRandom(this.randomSeed);
+    this.branches = [];
+    this.blossoms = [];
+
+    // Trunk height matches count of children in cluster
+    const mainHeight = 70 + Math.min(110, this.childCount * 18) + rng() * 25;
     
-    // Alternate branch directions (left, right, center-left, center-right)
-    const isLeft = index % 2 === 0;
-    const branchLength = 40 + Math.min(40, g.childCount * 10);
-    const branchAngle = (isLeft ? -35 : 35) + (index * 4 * (isLeft ? -1 : 1));
-    const angleRad = branchAngle * Math.PI / 180;
+    // Main Trunk
+    this.branches.push({
+      id: 0,
+      startX: 0, startY: 0,
+      cpX: (rng() - 0.5) * 15, cpY: -mainHeight * 0.4,
+      endX: (rng() - 0.5) * 10, endY: -mainHeight,
+      width: 5 + Math.min(5, this.childCount * 0.7),
+      growthDelay: 0,
+      growthDuration: 0.5
+    });
+
+    const mainTrunk = this.branches[0];
     
-    // Calculate start position on the curved trunk
-    // Since trunk curves, we interpolate the Y coordinates and apply slight X offset
-    const t = (trunkStartY - branchStartY) / trunkHeight;
-    const branchStartX = 200 + (t * (200 - trunkCpX) * 0.5 * (isLeft ? 1 : -1));
-    
-    const branchEndX = branchStartX + Math.sin(angleRad) * branchLength;
-    const branchEndY = branchStartY - Math.cos(angleRad) * branchLength;
-    
-    // Create branch element
-    const branch = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    branch.setAttribute('d', `M ${branchStartX} ${branchStartY} Q ${branchStartX + (branchEndX-branchStartX)*0.2} ${branchStartY - 10} ${branchEndX} ${branchEndY}`);
-    branch.setAttribute('stroke', 'var(--color-primary-green)'); // Dark growth green bark
-    branch.setAttribute('stroke-width', Math.max(3, 8 - index * 1.2).toString());
-    branch.setAttribute('stroke-linecap', 'round');
-    branch.setAttribute('fill', 'none');
-    branch.classList.add('grow-branch');
-    branchesContainer.appendChild(branch);
-    
-    // 3. Generate Leaves on the branches (child tokens)
-    const color = groupColors[index % groupColors.length];
-    
-    for (let c = 0; c < g.childCount; c++) {
-      // Space leaves along branch
-      const leafRatio = (c + 1) / (g.childCount + 1);
-      const leafX = branchStartX + (branchEndX - branchStartX) * leafRatio;
-      const leafY = branchStartY + (branchEndY - branchStartY) * leafRatio;
+    // Split into secondary stems
+    const branchCount = 2 + Math.floor(rng() * 2) + Math.min(3, Math.floor(this.childCount / 3));
+    for (let i = 0; i < branchCount; i++) {
+      const angle = (-42 + (i / (branchCount - 1)) * 84 + (rng() - 0.5) * 10) * Math.PI / 180;
+      const length = mainHeight * (0.45 + rng() * 0.35);
+      const bX = mainTrunk.endX;
+      const bY = mainTrunk.endY;
+      const eX = bX + Math.sin(angle) * length;
+      const eY = bY - Math.cos(angle) * length;
+      const bIdx = this.branches.length;
       
-      const leafAngle = branchAngle + (c % 2 === 0 ? 45 : -45);
+      this.branches.push({
+        id: bIdx,
+        startX: bX, startY: bY,
+        cpX: bX + Math.sin(angle) * length * 0.4 + (rng() - 0.5) * 8,
+        cpY: bY - Math.cos(angle) * length * 0.4,
+        endX: eX, endY: eY,
+        width: mainTrunk.width * 0.6,
+        growthDelay: 0.25,
+        growthDuration: 0.4
+      });
+
+      // Twigs branching further
+      const twigCount = 1 + Math.floor(rng() * 2);
+      for (let j = 0; j < twigCount; j++) {
+        const tAngle = angle + (rng() - 0.5) * 55 * Math.PI / 180;
+        const tLength = length * (0.45 + rng() * 0.25);
+        const tRatio = 0.35 + rng() * 0.5;
+        const sX = bX + (eX - bX) * tRatio;
+        const sY = bY + (eY - bY) * tRatio;
+        const teX = sX + Math.sin(tAngle) * tLength;
+        const teY = sY - Math.cos(tAngle) * tLength;
+        
+        this.branches.push({
+          id: this.branches.length,
+          startX: sX, startY: sY,
+          cpX: sX + Math.sin(tAngle) * tLength * 0.5,
+          cpY: sY - Math.cos(tAngle) * tLength * 0.5,
+          endX: teX, endY: teY,
+          width: mainTrunk.width * 0.35,
+          growthDelay: 0.45,
+          growthDuration: 0.3,
+          parentId: bIdx,
+          parentRatio: tRatio
+        });
+      }
+    }
+
+    // Attach leaves and flower blossoms to the branch nodes
+    this.branches.forEach((b, idx) => {
+      if (idx === 0) return; // trunk stays clear
       
-      createLeaf(leafX, leafY, leafAngle, color, false);
+      // Leaves along branches
+      const numLeaves = 2 + Math.floor(rng() * 3);
+      for (let l = 0; l < numLeaves; l++) {
+        const ratio = 0.3 + (l / numLeaves) * 0.65;
+        const angleOffset = (rng() > 0.5 ? 42 : -42) + (rng() - 0.5) * 12;
+        this.blossoms.push({
+          type: 'leaf',
+          branchId: b.id,
+          ratio: ratio,
+          angleOffset: angleOffset * Math.PI / 180,
+          scale: 0.75 + rng() * 0.35,
+          growthDelay: b.growthDelay + 0.15 + rng() * 0.2
+        });
+      }
+
+      // Blossoms opening at twig ends
+      if (idx > 1 && rng() > 0.35) {
+        this.blossoms.push({
+          type: 'flower',
+          branchId: b.id,
+          ratio: 1.0,
+          angleOffset: (rng() - 0.5) * 25 * Math.PI / 180,
+          scale: 1.1 + rng() * 0.4,
+          colorIdx: Math.floor(rng() * 4),
+          growthDelay: b.growthDelay + 0.35 + rng() * 0.15
+        });
+      }
+    });
+  }
+
+  tick(dt) {
+    if (this.currentGrowth < this.targetGrowth) {
+      this.currentGrowth = Math.min(this.targetGrowth, this.currentGrowth + dt * 0.9);
+    } else if (this.currentGrowth > this.targetGrowth) {
+      this.currentGrowth = Math.max(this.targetGrowth, this.currentGrowth - dt * 1.4);
+    }
+  }
+
+  draw(cContext, w, h, windVal, time) {
+    this.x = 0.15 * w + (hashStringToNum(this.title) % 100) / 100 * (0.7 * w);
+    const groundY = h * 0.88;
+    
+    cContext.save();
+    cContext.translate(this.x, groundY);
+    
+    // Label under the soil bed
+    cContext.fillStyle = 'rgba(53, 64, 31, 0.4)';
+    cContext.font = '500 11px Outfit, sans-serif';
+    cContext.textAlign = 'center';
+    cContext.fillText(this.title, 0, 24);
+
+    const swayedNodes = {};
+
+    this.branches.forEach(b => {
+      let startX = b.startX;
+      let startY = b.startY;
+      
+      if (b.parentId !== undefined) {
+        const parentNode = swayedNodes[b.parentId];
+        if (parentNode) {
+          const t = b.parentRatio;
+          startX = (1-t)*(1-t)*parentNode.startX + 2*(1-t)*t*parentNode.cpX + t*t*parentNode.endX;
+          startY = (1-t)*(1-t)*parentNode.startY + 2*(1-t)*t*parentNode.cpY + t*t*parentNode.endY;
+        }
+      } else if (b.id > 0) {
+        const parentNode = swayedNodes[0];
+        if (parentNode) {
+          startX = parentNode.endX;
+          startY = parentNode.endY;
+        }
+      }
+      
+      // Calculate wind sway offset based on height
+      const swayFactor = (-b.endY / 150) * 18;
+      const sway = Math.sin(time * 2.2 + this.wiggleOffset) * windVal * swayFactor;
+      
+      const curEndX = b.endX + sway;
+      const curEndY = b.endY;
+      const curCpX = b.cpX + sway * 0.5;
+      const curCpY = b.cpY;
+      
+      swayedNodes[b.id] = {
+        startX: startX,
+        startY: startY,
+        cpX: curCpX,
+        cpY: curCpY,
+        endX: curEndX,
+        endY: curEndY
+      };
+      
+      const plantGrowth = this.currentGrowth;
+      const branchGrowth = Math.max(0, Math.min(1, (plantGrowth - b.growthDelay) / b.growthDuration));
+      
+      if (branchGrowth <= 0) return;
+      
+      cContext.beginPath();
+      cContext.moveTo(startX, startY);
+      
+      if (branchGrowth === 1) {
+        cContext.quadraticCurveTo(curCpX, curCpY, curEndX, curEndY);
+      } else {
+        const t = branchGrowth;
+        const xAtT = (1-t)*(1-t)*startX + 2*(1-t)*t*curCpX + t*t*curEndX;
+        const yAtT = (1-t)*(1-t)*startY + 2*(1-t)*t*curCpY + t*t*curEndY;
+        const cpXAtT = (1-t)*startX + t*curCpX;
+        const cpYAtT = (1-t)*startY + t*curCpY;
+        cContext.quadraticCurveTo(cpXAtT, cpYAtT, xAtT, yAtT);
+      }
+      
+      cContext.strokeStyle = '#4c5a2a'; // primary green branch color
+      cContext.lineWidth = b.width * (0.5 + 0.5 * branchGrowth);
+      cContext.lineCap = 'round';
+      cContext.stroke();
+    });
+
+    const colors = [
+      '#9a9f55', // sage
+      '#d9c89f', // nutrient
+      '#718238', // harvest
+      '#b8b2a1'  // compost
+    ];
+
+    this.blossoms.forEach(bl => {
+      const bNode = swayedNodes[bl.branchId];
+      if (!bNode) return;
+      
+      const b = this.branches.find(br => br.id === bl.branchId);
+      const plantGrowth = this.currentGrowth;
+      const branchGrowth = Math.max(0, Math.min(1, (plantGrowth - b.growthDelay) / b.growthDuration));
+      if (branchGrowth < bl.ratio) return;
+      
+      const t = bl.ratio * branchGrowth;
+      const x = (1-t)*(1-t)*bNode.startX + 2*(1-t)*t*bNode.cpX + t*t*bNode.endX;
+      const y = (1-t)*(1-t)*bNode.startY + 2*(1-t)*t*bNode.cpY + t*t*bNode.endY;
+      
+      const tx = 2*(1-t)*(bNode.cpX - bNode.startX) + 2*t*(bNode.endX - bNode.cpX);
+      const ty = 2*(1-t)*(bNode.cpY - bNode.startY) + 2*t*(bNode.endY - bNode.cpY);
+      const baseAngle = Math.atan2(ty, tx) + Math.PI/2;
+      
+      const blGrowth = Math.max(0, Math.min(1, (plantGrowth - bl.growthDelay) / 0.25));
+      if (blGrowth <= 0) return;
+      
+      const finalScale = bl.scale * blGrowth;
+      
+      cContext.save();
+      cContext.translate(x, y);
+      cContext.rotate(baseAngle + bl.angleOffset);
+      
+      if (bl.type === 'leaf') {
+        // Draw leaf
+        cContext.beginPath();
+        cContext.moveTo(0, 0);
+        cContext.quadraticCurveTo(-6 * finalScale, -7 * finalScale, -4 * finalScale, -15 * finalScale);
+        cContext.quadraticCurveTo(0, -18 * finalScale, 4 * finalScale, -15 * finalScale);
+        cContext.quadraticCurveTo(6 * finalScale, -7 * finalScale, 0, 0);
+        cContext.fillStyle = '#718238'; // harvest green leaves
+        cContext.fill();
+        cContext.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        cContext.lineWidth = 0.8;
+        cContext.stroke();
+      } else {
+        // Draw open blossom flower
+        const color = colors[bl.colorIdx % colors.length];
+        const petalSize = 5 * finalScale;
+        cContext.fillStyle = color;
+        for (let i = 0; i < 5; i++) {
+          cContext.rotate((Math.PI * 2) / 5);
+          cContext.beginPath();
+          cContext.ellipse(0, -petalSize, petalSize * 0.7, petalSize, 0, 0, Math.PI * 2);
+          cContext.fill();
+        }
+        
+        cContext.beginPath();
+        cContext.arc(0, 0, petalSize * 0.4, 0, Math.PI * 2);
+        cContext.fillStyle = '#FFFDF6';
+        cContext.fill();
+      }
+      cContext.restore();
+    });
+
+    cContext.restore();
+  }
+}
+
+// Solo Sprout representing individual ideas
+class SoloSprout {
+  constructor(title) {
+    this.title = title;
+    this.currentGrowth = 0;
+    this.targetGrowth = 1;
+    this.wiggleOffset = Math.random() * Math.PI * 2;
+    this.x = 0;
+    this.randomSeed = hashStringToNum(title) || 456;
+  }
+
+  tick(dt) {
+    if (this.currentGrowth < this.targetGrowth) {
+      this.currentGrowth = Math.min(this.targetGrowth, this.currentGrowth + dt * 1.1);
+    } else if (this.currentGrowth > this.targetGrowth) {
+      this.currentGrowth = Math.max(this.targetGrowth, this.currentGrowth - dt * 1.5);
+    }
+  }
+
+  draw(cContext, w, h, windVal, time) {
+    this.x = 0.15 * w + (hashStringToNum(this.title) % 100) / 100 * (0.7 * w);
+    const groundY = h * 0.88;
+    
+    cContext.save();
+    cContext.translate(this.x, groundY);
+
+    // Label under the soil bed
+    cContext.fillStyle = 'rgba(53, 64, 31, 0.3)';
+    cContext.font = '500 10px Outfit, sans-serif';
+    cContext.textAlign = 'center';
+    cContext.fillText(this.title, 0, 18);
+
+    const growth = this.currentGrowth;
+    if (growth <= 0) {
+      cContext.restore();
+      return;
+    }
+
+    const sproutHeight = 30 * growth;
+    const sway = Math.sin(time * 2.6 + this.wiggleOffset) * windVal * 6;
+    
+    // Draw sprout stem (thin light green curve)
+    cContext.beginPath();
+    cContext.moveTo(0, 0);
+    cContext.quadraticCurveTo(sway * 0.5, -sproutHeight * 0.5, sway, -sproutHeight);
+    cContext.strokeStyle = '#9a9f55'; // sage green stem
+    cContext.lineWidth = 2.2;
+    cContext.stroke();
+
+    cContext.translate(sway, -sproutHeight);
+    
+    // Left leaf
+    cContext.save();
+    cContext.rotate(-Math.PI / 4 + sway * 0.05);
+    cContext.beginPath();
+    cContext.ellipse(-4 * growth, -4 * growth, 2.5 * growth, 5.5 * growth, -Math.PI/4, 0, Math.PI * 2);
+    cContext.fillStyle = '#9a9f55';
+    cContext.fill();
+    cContext.restore();
+
+    // Right leaf
+    cContext.save();
+    cContext.rotate(Math.PI / 4 + sway * 0.05);
+    cContext.beginPath();
+    cContext.ellipse(4 * growth, -4 * growth, 2.5 * growth, 5.5 * growth, Math.PI/4, 0, Math.PI * 2);
+    cContext.fillStyle = '#9a9f55';
+    cContext.fill();
+    cContext.restore();
+
+    cContext.restore();
+  }
+}
+
+// Global visual elements arrays
+const activePlants = new Map();
+const activeSprouts = new Map();
+const activeConnections = new Map();
+const particles = [];
+
+let globalTime = 0;
+let currentWind = 0.15;
+let isInteracting = false;
+
+// Look up horizontal coordinate of any plant / sprout
+function getPlantX(title) {
+  if (activePlants.has(title)) {
+    return activePlants.get(title).x;
+  }
+  if (activeSprouts.has(title)) {
+    return activeSprouts.get(title).x;
+  }
+  return null;
+}
+
+// Initialize particles pool
+function initParticles() {
+  particles.length = 0;
+  for (let i = 0; i < 20; i++) {
+    particles.push(new SeedParticle(width, height, true));
+  }
+}
+
+// Draw root connections and aerial vines
+function drawConnections(cContext, w, h, time) {
+  const groundY = h * 0.88;
+  
+  for (let [key, conn] of activeConnections.entries()) {
+    if (conn.currentGrowth <= 0) continue;
+    
+    const x1 = getPlantX(conn.sourceTitle);
+    const x2 = getPlantX(conn.targetTitle);
+    
+    if (x1 === null || x2 === null) continue;
+    
+    const grow = conn.currentGrowth;
+    const midX = (x1 + x2) / 2;
+    
+    // Draw Root Line (below ground)
+    cContext.save();
+    cContext.beginPath();
+    cContext.moveTo(x1, groundY);
+    
+    const depth = groundY + 25 + Math.min(70, Math.abs(x1 - x2) * 0.18);
+    cContext.bezierCurveTo(x1, depth, x2, depth, x2, groundY);
+    
+    cContext.strokeStyle = 'rgba(76, 90, 42, 0.12)'; // roots color
+    cContext.lineWidth = 2.5 * grow;
+    cContext.stroke();
+    cContext.restore();
+    
+    // Draw Vine connection (above ground)
+    cContext.save();
+    cContext.beginPath();
+    cContext.moveTo(x1, groundY - 8);
+    
+    const vineCpX = midX + Math.sin(time * 1.1 + hashStringToNum(key)) * 12;
+    const vineCpY = groundY - 50 - Math.min(85, Math.abs(x1 - x2) * 0.22);
+    
+    if (grow === 1) {
+      cContext.quadraticCurveTo(vineCpX, vineCpY, x2, groundY - 8);
+    } else {
+      const t = grow;
+      const xAtT = (1-t)*(1-t)*x1 + 2*(1-t)*t*vineCpX + t*t*x2;
+      const yAtT = (1-t)*(1-t)*(groundY-8) + 2*(1-t)*t*vineCpY + t*t*(groundY-8);
+      const cpXAtT = (1-t)*x1 + t*vineCpX;
+      const cpYAtT = (1-t)*(groundY-8) + t*vineCpY;
+      cContext.quadraticCurveTo(cpXAtT, cpYAtT, xAtT, yAtT);
+    }
+    
+    cContext.strokeStyle = 'rgba(154, 159, 85, 0.26)'; // sage vine
+    cContext.lineWidth = 1.6 * grow;
+    cContext.stroke();
+    cContext.restore();
+  }
+}
+
+// Draw layered mossy hills
+function drawGround(cContext, w, h) {
+  const groundY = h * 0.88;
+  cContext.save();
+  
+  // Back Ground Hill
+  cContext.beginPath();
+  cContext.moveTo(0, h);
+  cContext.lineTo(0, groundY + 15);
+  cContext.quadraticCurveTo(w * 0.25, groundY - 5, w * 0.5, groundY + 10);
+  cContext.quadraticCurveTo(w * 0.75, groundY + 22, w, groundY + 5);
+  cContext.lineTo(w, h);
+  cContext.fillStyle = '#dfd9c8'; // Tan beige
+  cContext.fill();
+
+  // Mid Ground Hill
+  cContext.beginPath();
+  cContext.moveTo(0, h);
+  cContext.lineTo(0, groundY + 5);
+  cContext.quadraticCurveTo(w * 0.35, groundY + 14, w * 0.65, groundY - 8);
+  cContext.quadraticCurveTo(w * 0.85, groundY + 5, w, groundY - 2);
+  cContext.lineTo(w, h);
+  cContext.fillStyle = '#ebd5c0'; // Clay color
+  cContext.fill();
+
+  // Foreground Hill
+  cContext.beginPath();
+  cContext.moveTo(0, h);
+  cContext.lineTo(0, groundY);
+  cContext.quadraticCurveTo(w * 0.2, groundY + 8, w * 0.45, groundY - 5);
+  cContext.quadraticCurveTo(w * 0.7, groundY + 12, w, groundY);
+  cContext.lineTo(w, h);
+  cContext.fillStyle = '#dcd7c5'; // Sage mud
+  cContext.fill();
+  
+  cContext.restore();
+}
+
+// Draw sunbeams radiating from the sky
+function drawSunrays(cContext, w, h, time) {
+  cContext.save();
+  const numRays = 4;
+  cContext.fillStyle = 'rgba(255, 253, 246, 0.08)';
+  
+  for (let i = 0; i < numRays; i++) {
+    const angleStart = 0.15 + (i * 0.15) + Math.sin(time * 0.15 + i) * 0.02;
+    const widthAngle = 0.07 + Math.cos(time * 0.25 + i) * 0.01;
+    
+    cContext.beginPath();
+    cContext.moveTo(0, 0);
+    
+    const x1 = Math.cos(angleStart * Math.PI) * w * 1.5;
+    const y1 = Math.sin(angleStart * Math.PI) * h * 1.5;
+    
+    const x2 = Math.cos((angleStart + widthAngle) * Math.PI) * w * 1.5;
+    const y2 = Math.sin((angleStart + widthAngle) * Math.PI) * h * 1.5;
+    
+    cContext.lineTo(x1, y1);
+    cContext.lineTo(x2, y2);
+    cContext.closePath();
+    cContext.fill();
+  }
+  
+  cContext.restore();
+}
+
+// Canvas size resize
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  width = window.innerWidth;
+  height = window.innerHeight;
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  ctx.scale(dpr, dpr);
+}
+
+// State Synchronization from tabletop
+function handleStateUpdate(data) {
+  const { groups: newGroups = [], soloIdeas = [], createdConnections: newConns = [], isInteracting: interactionActive = false } = data;
+  isInteracting = interactionActive;
+
+  // Sync cluster plants
+  const currentGroupTitles = new Set();
+  newGroups.forEach(g => {
+    currentGroupTitles.add(g.title);
+    if (activePlants.has(g.title)) {
+      activePlants.get(g.title).update(g.childCount);
+    } else {
+      activePlants.set(g.title, new ClusterPlant(g.title, g.childCount));
     }
   });
-  
-  // 4. Generate Solo Leaves (floating/budding from trunk)
-  for (let s = 0; s < soloIdeasCount; s++) {
-    // Distribute solo leaves along the trunk top/sides
-    const ratio = (s + 1) / (soloIdeasCount + 1);
-    const leafY = trunkEndY + (trunkHeight * 0.45 * ratio);
-    const isLeft = s % 2 === 0;
-    const leafX = 200 + (isLeft ? -8 : 8);
-    const leafAngle = isLeft ? -70 : 70;
-    
-    // Solo leaves are sage-green buds
-    createLeaf(leafX, leafY, leafAngle, 'var(--color-sage)', true);
-  }
-}
 
-// SVG Leaf helper
-function createLeaf(cx, cy, angle, color, isSolo) {
-  const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-  g.setAttribute('transform', `translate(${cx}, ${cy}) rotate(${angle})`);
-  
-  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  // Smooth leaf curve path
-  path.setAttribute('d', "M 0 0 C -6 -12, -14 -12, -18 0 C -14 12, -6 12, 0 0");
-  path.setAttribute('fill', color);
-  
-  // Subtle leaf veins or detail line
-  path.setAttribute('stroke', 'rgba(255,255,255,0.25)');
-  path.setAttribute('stroke-width', '1');
-  
-  if (isSolo) {
-    path.classList.add('grow-leaf-solo');
-  } else {
-    path.classList.add('grow-leaf');
-  }
-  
-  g.appendChild(path);
-  leavesContainer.appendChild(g);
-}
-
-// Update UI Text elements
-function updateLabels() {
-  const { totalIdeas, groups, sessionTitle, activeState } = currentState;
-  
-  ideasStatEl.textContent = totalIdeas.toString();
-  groupsStatEl.textContent = groups.length.toString();
-  titleEl.textContent = sessionTitle;
-  
-  if (activeState === 'welcome') {
-    statusTextEl.textContent = 'Klaar voor start. Welkomstscherm geopend.';
-  } else if (activeState === 'chooseExperience') {
-    statusTextEl.textContent = 'Ervaring kiezen op tafel...';
-  } else if (activeState === 'tableSession') {
-    if (totalIdeas === 0) {
-      statusTextEl.textContent = 'Sessie gestart. Plant zaden op tafel.';
-    } else if (totalIdeas < 3) {
-      statusTextEl.textContent = 'Eerste kiem van de creatieve groei.';
-    } else if (totalIdeas < 6) {
-      statusTextEl.textContent = 'Actieve groei en wortelverbindingen zichtbaar.';
-    } else {
-      statusTextEl.textContent = 'Bloeiend wortelnetwerk van co-reflectie gevormd.';
+  for (let [title, plant] of activePlants.entries()) {
+    if (!currentGroupTitles.has(title)) {
+      plant.targetGrowth = 0;
     }
-  } else if (activeState === 'sessionSummary') {
-    statusTextEl.textContent = 'Oogst wordt gebundeld.';
-  } else if (activeState === 'endSession') {
-    statusTextEl.textContent = 'Creatieve groeisessie afgerond.';
   }
+
+  // Sync solo sprouts
+  const currentSoloTitles = new Set();
+  soloIdeas.forEach(s => {
+    currentSoloTitles.add(s.title);
+    if (activeSprouts.has(s.title)) {
+      activeSprouts.get(s.title).targetGrowth = 1;
+    } else {
+      activeSprouts.set(s.title, new SoloSprout(s.title));
+    }
+  });
+
+  for (let [title, sprout] of activeSprouts.entries()) {
+    if (!currentSoloTitles.has(title)) {
+      sprout.targetGrowth = 0;
+    }
+  }
+
+  // Sync connections
+  const currentConnKeys = new Set();
+  newConns.forEach(c => {
+    const key = `${c.source}->${c.target}`;
+    currentConnKeys.add(key);
+    if (!activeConnections.has(key)) {
+      activeConnections.set(key, {
+        key,
+        sourceTitle: c.source,
+        targetTitle: c.target,
+        currentGrowth: 0,
+        targetGrowth: 1
+      });
+    } else {
+      activeConnections.get(key).targetGrowth = 1;
+    }
+  });
+
+  for (let [key, conn] of activeConnections.entries()) {
+    if (!currentConnKeys.has(key)) {
+      conn.targetGrowth = 0;
+    }
+  }
+}
+
+// Reset the entire ecosystem
+function resetEcosystem() {
+  activePlants.forEach(plant => plant.targetGrowth = 0);
+  activeSprouts.forEach(sprout => sprout.targetGrowth = 0);
+  activeConnections.forEach(conn => conn.targetGrowth = 0);
+  isInteracting = false;
 }
 
 // Listen for updates from Main tabletop screen
@@ -194,33 +653,99 @@ channel.onmessage = (event) => {
   const { type, data } = event.data;
   
   if (type === 'state-update') {
-    currentState = {
-      totalIdeas: data.totalIdeas,
-      soloIdeasCount: data.soloIdeasCount,
-      groups: data.groups,
-      sessionTitle: data.sessionTitle,
-      activeState: data.activeState
-    };
-    
-    updateLabels();
-    updateTree();
+    handleStateUpdate(data);
   } else if (type === 'reset') {
-    currentState = {
-      totalIdeas: 0,
-      soloIdeasCount: 0,
-      groups: [],
-      sessionTitle: 'Creatieve Speelruimte',
-      activeState: 'welcome'
-    };
-    
-    updateLabels();
-    updateTree();
+    resetEcosystem();
   }
 };
 
-// Initial Setup
-window.addEventListener('DOMContentLoaded', () => {
+// Main tick loop
+let lastFrameTime = performance.now();
+function loop(timestamp) {
+  const dt = Math.min(0.1, (timestamp - lastFrameTime) / 1000);
+  lastFrameTime = timestamp;
+  globalTime += dt;
+
+  // Dynamically calculate wind strength based on collaboration activity
+  const windTarget = isInteracting ? 0.65 + Math.sin(globalTime * 3.8) * 0.22 : 0.14 + Math.sin(globalTime * 0.7) * 0.04;
+  currentWind += (windTarget - currentWind) * dt * 2.2;
+
+  ctx.clearRect(0, 0, width, height);
+
+  // Background sunlight filtering
+  drawSunrays(ctx, width, height, globalTime);
+
+  // Maintain floating seed particles
+  const maxParticles = isInteracting ? 36 : 16;
+  while (particles.length < maxParticles) {
+    particles.push(new SeedParticle(width, height, false));
+  }
+  while (particles.length > maxParticles) {
+    particles.pop();
+  }
+
+  particles.forEach(p => {
+    p.tick(dt, currentWind, width, height);
+    p.draw(ctx);
+  });
+
+  // Tick entity objects
+  for (let [title, plant] of activePlants.entries()) {
+    plant.tick(dt);
+    if (plant.currentGrowth <= 0 && plant.targetGrowth === 0) {
+      activePlants.delete(title);
+    }
+  }
+
+  for (let [title, sprout] of activeSprouts.entries()) {
+    sprout.tick(dt);
+    if (sprout.currentGrowth <= 0 && sprout.targetGrowth === 0) {
+      activeSprouts.delete(title);
+    }
+  }
+
+  for (let [key, conn] of activeConnections.entries()) {
+    if (conn.currentGrowth < conn.targetGrowth) {
+      conn.currentGrowth = Math.min(conn.targetGrowth, conn.currentGrowth + dt * 0.8);
+    } else if (conn.currentGrowth > conn.targetGrowth) {
+      conn.currentGrowth = Math.max(conn.targetGrowth, conn.currentGrowth - dt * 1.4);
+    }
+    if (conn.currentGrowth <= 0 && conn.targetGrowth === 0) {
+      activeConnections.delete(key);
+    }
+  }
+
+  // Draw background elements and roots
+  drawConnections(ctx, width, height, globalTime);
+
+  // Draw active sprouts and cluster plants
+  activePlants.forEach(plant => {
+    plant.draw(ctx, width, height, currentWind, globalTime);
+  });
+
+  activeSprouts.forEach(sprout => {
+    sprout.draw(ctx, width, height, currentWind, globalTime);
+  });
+
+  // Layered terrain
+  drawGround(ctx, width, height);
+
+  requestAnimationFrame(loop);
+}
+
+// Initial Setup with readyState check to handle module script deferred execution
+function init() {
+  resize();
   initParticles();
-  updateLabels();
-  updateTree();
-});
+  window.addEventListener('resize', () => {
+    resize();
+    initParticles();
+  });
+  requestAnimationFrame(loop);
+}
+
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  init();
+} else {
+  window.addEventListener('DOMContentLoaded', init);
+}

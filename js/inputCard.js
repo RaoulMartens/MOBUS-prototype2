@@ -49,16 +49,17 @@ export class InputCard {
     }
     el.style.rotate = `${this.rotation}deg`;
     
-    // Centered plus icon that fades out during morph (only for new tokens)
+    // Centered seed icon that fades out during morph (only for new tokens)
     if (!this.sourceToken) {
-      const plusIcon = document.createElement('div');
-      plusIcon.className = 'input-card-plus-icon';
-      plusIcon.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
+      const seedIcon = document.createElement('div');
+      seedIcon.className = 'input-card-plus-icon';
+      seedIcon.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
+          <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
+          <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
         </svg>`;
-      el.appendChild(plusIcon);
+      el.appendChild(seedIcon);
     }
     
     // Inner content container that fades in after expansion
