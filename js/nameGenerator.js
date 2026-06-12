@@ -102,11 +102,11 @@ export function getThemeExplanation(text1, text2) {
   const isBediening = (t) => {
     if (!t) return false;
     const l = t.toLowerCase();
-    return l.includes("sleep") || l.includes("wissen") || l.includes("dubbelklik") || l.includes("bewerken");
+    return l.includes("sleep") || l.includes("snoeien") || l.includes("dubbelklik") || l.includes("verzorgen");
   };
   
   if (isBediening(text1) && isBediening(text2)) {
-    return "Beide ideeën gaan over directe tokenbediening.";
+    return "Beide zaden gaan over directe bediening.";
   }
   
   const words1 = cleanAndTokenize(text1);
@@ -116,11 +116,11 @@ export function getThemeExplanation(text1, text2) {
   
   for (const theme of THEMES) {
     if (themes1.has(theme.name) && themes2.has(theme.name)) {
-      return `Beide ideeën gaan over ${theme.name.toLowerCase()}.`;
+      return `Beide zaden gaan over ${theme.name.toLowerCase()}.`;
     }
   }
   
-  return "Beide ideeën liggen dicht bij elkaar op het bord.";
+  return "Beide zaden liggen dicht bij elkaar op het canvas.";
 }
 
 export async function generateGroupName(text1, text2) {
@@ -164,11 +164,11 @@ export async function generateGroupName(text1, text2) {
     return `${cap(noun1)} & ${cap(noun2)}`;
   } else if (noun1) {
     const cap = (word) => word.charAt(0).toUpperCase() + word.slice(1);
-    return `Cluster: ${cap(noun1)}`;
+    return `Kluit: ${cap(noun1)}`;
   } else if (noun2) {
     const cap = (word) => word.charAt(0).toUpperCase() + word.slice(1);
-    return `Cluster: ${cap(noun2)}`;
+    return `Kluit: ${cap(noun2)}`;
   }
 
-  return "Nieuw cluster";
+  return "Kluit";
 }

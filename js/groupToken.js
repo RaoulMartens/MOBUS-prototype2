@@ -1,7 +1,7 @@
 import { Token } from './token.js';
 
 export class GroupToken extends Token {
-  constructor(id, x, y, rotation, title = "Nieuw cluster", childTokensData = [], onStateChange) {
+  constructor(id, x, y, rotation, title = "Kluit", childTokensData = [], onStateChange) {
     super(id, x, y, rotation, title, onStateChange);
     this.type = 'group';
     this.childTokensData = childTokensData; // Array of { id, title, borderRadius, rotation }
@@ -359,6 +359,9 @@ export class GroupToken extends Token {
       } else {
         this.relayoutChildren();
         this.updateStyle();
+      }
+      if (window.canvasManager) {
+        window.canvasManager.updateAISuggestions();
       }
     } else {
       // Snaps back

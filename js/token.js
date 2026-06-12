@@ -10,7 +10,7 @@ export function generateDisplayTitle(text) {
 }
 
 export class Token {
-  constructor(id, x, y, rotation, title = "Nieuw idee", onStateChange) {
+  constructor(id, x, y, rotation, title = "Plant idee", onStateChange) {
     this.id = id;
     this.x = x;
     this.y = y;
@@ -66,6 +66,18 @@ export class Token {
     this.domElement = null;
     this.titleElement = null;
     
+    // Nudge states
+    this.isFlipped = false;
+    this.reversedTitle = "";
+    this.isExtreme = false;
+    this.previousScale = 1.0;
+    this.contextTag = "";
+    this.extremeBadgeElement = null;
+    this.contextTagElement = null;
+    this.innerPromptElement = null;
+    this.normalizeBtnElement = null;
+    this.flipAffordanceElement = null;
+    
     this.createDom();
     this.setupEvents();
   }
@@ -76,14 +88,61 @@ export class Token {
     el.id = `token-${this.id}`;
     el.style.borderRadius = this.borderRadius; // Apply unique organic shape
     
+    // Create token inner wrapper for 3D flip
+    const inner = document.createElement('div');
+    inner.className = 'token-inner';
+    
+    const front = document.createElement('div');
+    front.className = 'token-front';
+    front.style.borderRadius = this.borderRadius;
+    
     const title = document.createElement('div');
     title.className = 'token-title';
     title.innerText = this.displayTitle;
+    front.appendChild(title);
     
-    el.appendChild(title);
+    const back = document.createElement('div');
+    back.className = 'token-back';
+    back.style.borderRadius = this.borderRadius;
+    
+    const backTitle = document.createElement('div');
+    backTitle.className = 'token-title back-title';
+    backTitle.innerText = '';
+    back.appendChild(backTitle);
+    
+    // Small "keer terug" affordance
+    const keerTerug = document.createElement('span');
+    keerTerug.className = 'keer-terug-btn';
+    keerTerug.innerText = 'Keer terug';
+    keerTerug.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.flipBack();
+    });
+    back.appendChild(keerTerug);
+    
+    inner.appendChild(front);
+    inner.appendChild(back);
+    el.appendChild(inner);
     
     this.domElement = el;
+    this.innerElement = inner;
     this.titleElement = title;
+    this.backTitleElement = backTitle;
+    this.frontElement = front;
+    
+    // Flip affordance icon on front (small curved arrow)
+    const flipAffordance = document.createElement('div');
+    flipAffordance.className = 'flip-affordance';
+    flipAffordance.style.display = 'none'; // hidden by default, shown by nudge
+    flipAffordance.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>`;
+    flipAffordance.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      this.flip();
+    });
+    front.appendChild(flipAffordance);
+    this.flipAffordanceElement = flipAffordance;
     
     // Apply coordinates and style BEFORE appending to DOM to prevent top-left flash
     this.updateStyle();
@@ -143,6 +202,128 @@ export class Token {
     } else {
       this.domElement.classList.remove('editing');
     }
+
+    // Render 10x magnification components
+    if (this.isExtreme && this.frontElement) {
+      this.domElement.classList.add('pulsing-outline');
+      if (!this.extremeBadgeElement) {
+        this.extremeBadgeElement = document.createElement('div');
+        this.extremeBadgeElement.className = 'extreme-badge';
+        this.extremeBadgeElement.innerText = '10x';
+        this.frontElement.appendChild(this.extremeBadgeElement);
+      }
+      if (!this.innerPromptElement) {
+        this.innerPromptElement = document.createElement('div');
+        this.innerPromptElement.className = 'inner-prompt';
+        this.innerPromptElement.innerText = 'Wat als dit idee 10x sterker was?';
+        this.frontElement.appendChild(this.innerPromptElement);
+      }
+      if (!this.normalizeBtnElement) {
+        this.normalizeBtnElement = document.createElement('span');
+        this.normalizeBtnElement.className = 'normalize-btn';
+        this.normalizeBtnElement.innerText = 'Normaliseren';
+        this.normalizeBtnElement.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          this.normalize();
+        });
+        this.frontElement.appendChild(this.normalizeBtnElement);
+      }
+    } else {
+      this.domElement.classList.remove('pulsing-outline');
+      if (this.extremeBadgeElement) {
+        this.extremeBadgeElement.remove();
+        this.extremeBadgeElement = null;
+      }
+      if (this.innerPromptElement) {
+        this.innerPromptElement.remove();
+        this.innerPromptElement = null;
+      }
+      if (this.normalizeBtnElement) {
+        this.normalizeBtnElement.remove();
+        this.normalizeBtnElement = null;
+      }
+    }
+
+    // Render context zone tags
+    if (this.contextTag && this.frontElement) {
+      this.domElement.classList.add('in-context');
+      if (!this.contextTagElement) {
+        this.contextTagElement = document.createElement('div');
+        this.contextTagElement.className = 'context-tag';
+        this.contextTagElement.innerText = this.contextTag;
+        this.frontElement.insertBefore(this.contextTagElement, this.titleElement);
+      } else {
+        this.contextTagElement.innerText = this.contextTag;
+      }
+    } else {
+      this.domElement.classList.remove('in-context');
+      if (this.contextTagElement) {
+        this.contextTagElement.remove();
+        this.contextTagElement = null;
+      }
+    }
+  }
+
+  flip() {
+    if (this.type === 'group' || this.isFlipped) return;
+    this.isFlipped = true;
+    
+    const generateReversedTitle = (text) => {
+      const lower = text.toLowerCase();
+      let reversed = text;
+      const replacements = [
+        { r: /\\bmeer\\b/gi, w: "minder" },
+        { r: /\\bminder\\b/gi, w: "meer" },
+        { r: /\\bwel\\b/gi, w: "niet" },
+        { r: /\\bniet\\b/gi, w: "wel" },
+        { r: /\\bgroter\\b/gi, w: "kleiner" },
+        { r: /\\bkleiner\\b/gi, w: "groter" },
+        { r: /\\bbeter\\b/gi, w: "slechter" },
+        { r: /\\bslechter\\b/gi, w: "beter" },
+        { r: /\\baltijd\\b/gi, w: "nooit" },
+        { r: /\\bnooit\\b/gi, w: "altijd" },
+        { r: /\\bja\\b/gi, w: "nee" },
+        { r: /\\bnee\\b/gi, w: "ja" },
+        { r: /\\bgoed\\b/gi, w: "slecht" },
+        { r: /\\bslecht\\b/gi, w: "goed" }
+      ];
+      let replaced = false;
+      for (const rep of replacements) {
+        if (rep.r.test(reversed)) {
+          reversed = reversed.replace(rep.r, rep.w);
+          replaced = true;
+        }
+      }
+      return "Omgekeerd: " + reversed;
+    };
+    
+    this.reversedTitle = generateReversedTitle(this.title);
+    if (this.backTitleElement) {
+      this.backTitleElement.innerText = this.reversedTitle;
+    }
+    
+    if (this.domElement) {
+      this.domElement.classList.add('flipped');
+    }
+    this.triggerChange('statechange');
+  }
+
+  flipBack() {
+    if (this.type === 'group' || !this.isFlipped) return;
+    this.isFlipped = false;
+    if (this.domElement) {
+      this.domElement.classList.remove('flipped');
+    }
+    this.triggerChange('statechange');
+  }
+
+  normalize() {
+    if (!this.isExtreme) return;
+    this.isExtreme = false;
+    this.scale = this.previousScale;
+    this.updateStyle();
+    this.triggerChange('statechange');
   }
   
   setupEvents() {

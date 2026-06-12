@@ -11,16 +11,27 @@
 </head>
 <body>
   <div id="canvas">
+    <!-- Biophilic Background Mycelium Network -->
+    <div class="mycelium-bg" aria-hidden="true">
+      <svg viewBox="0 0 1000 1000" preserveAspectRatio="none">
+        <path d="M 100,0 Q 150,200 100,400 T 200,800" stroke="var(--color-primary-green)" stroke-width="1.5" fill="none" opacity="0.04" />
+        <path d="M 900,100 Q 750,400 850,700 T 700,1000" stroke="var(--color-primary-green)" stroke-width="1.5" fill="none" opacity="0.04" />
+        <path d="M 0,500 Q 300,600 500,450 T 1000,600" stroke="var(--color-primary-green)" stroke-width="1.2" fill="none" opacity="0.03" />
+        <path d="M 200,100 C 400,200 450,50 600,200 S 800,150 900,300" stroke="var(--color-sage)" stroke-width="1.2" fill="none" opacity="0.03" />
+      </svg>
+    </div>
+
     <!-- Edge Buttons (Plus / Bin Mode) -->
-    <!-- Top Edge -->
-    <button class="edge-button top" data-side="top" style="left: 50%;" aria-label="Spawn token top">
-      <span class="icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
+    <!-- Top Edge Session Header (replaces top plus button) -->
+    <div class="session-header-edge top" data-side="top">
+      <span class="session-header-title">Creatieve Groeisessie</span>
+      <button id="btn-open-settings" class="settings-edge-btn" aria-label="Instellingen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="settings-icon">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
         </svg>
-      </span>
-    </button>
+      </button>
+    </div>
 
     <!-- Bottom Edge -->
     <button class="edge-button bottom" data-side="bottom" style="left: 50%;" aria-label="Spawn token bottom">
@@ -54,6 +65,229 @@
 
     <!-- Token Container -->
     <div id="token-container"></div>
+
+
+    <!-- Settings Modal / Panel -->
+    <div id="settings-panel" class="settings-panel">
+      <div class="settings-content glass-panel">
+        <h3 class="settings-title">Canvas-instellingen</h3>
+        
+        <div class="settings-option">
+          <span class="settings-option-label">Geluidseffecten</span>
+          <label class="switch-toggle">
+            <input type="checkbox" id="toggle-sound-effects" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <div class="settings-option">
+          <span class="settings-option-label">Geureffecten</span>
+          <label class="switch-toggle">
+            <input type="checkbox" id="toggle-smell-effects">
+            <span class="slider"></span>
+          </label>
+        </div>
+        
+        <button id="btn-settings-finish" class="action-btn settings-finish-btn">
+          <span>Oogsten</span>
+        </button>
+        
+        <button id="btn-settings-close" class="action-btn secondary settings-close-btn">
+          <span>Terug naar canvas</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Screens Overlay Container -->
+  <div id="app-screens">
+    <!-- Welcome Screen -->
+    <div id="screen-welcome" class="app-screen active">
+      <div class="welcome-screen-inner">
+        <!-- Decorative organic background art -->
+        <div class="welcome-bg-art" aria-hidden="true">
+          <svg viewBox="0 0 900 700" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+            <path d="M 450,350 C 350,280 200,320 80,240" stroke="var(--color-primary-green)" stroke-width="1.5" opacity="0.14"/>
+            <path d="M 450,350 C 520,260 680,300 820,200" stroke="var(--color-primary-green)" stroke-width="1.5" opacity="0.14"/>
+            <path d="M 450,350 C 400,450 280,480 120,560" stroke="var(--color-primary-green)" stroke-width="1.2" opacity="0.11"/>
+            <path d="M 450,350 C 500,460 660,490 790,590" stroke="var(--color-primary-green)" stroke-width="1.2" opacity="0.11"/>
+            <path d="M 450,350 C 440,210 370,100 290,20" stroke="var(--color-sage)" stroke-width="1.0" opacity="0.10"/>
+            <path d="M 450,350 C 465,205 545,90 630,5" stroke="var(--color-sage)" stroke-width="1.0" opacity="0.10"/>
+            <path d="M 450,350 C 360,340 240,280 100,310" stroke="var(--color-sage)" stroke-width="0.8" opacity="0.08"/>
+            <path d="M 450,350 C 560,360 680,300 830,330" stroke="var(--color-sage)" stroke-width="0.8" opacity="0.08"/>
+            <circle cx="80" cy="240" r="5" fill="var(--color-primary-green)" opacity="0.13"/>
+            <circle cx="820" cy="200" r="4" fill="var(--color-primary-green)" opacity="0.11"/>
+            <circle cx="120" cy="560" r="4" fill="var(--color-sage)" opacity="0.11"/>
+            <circle cx="790" cy="590" r="3.5" fill="var(--color-sage)" opacity="0.10"/>
+            <circle cx="290" cy="20" r="3" fill="var(--color-primary-green)" opacity="0.10"/>
+            <circle cx="450" cy="350" r="160" fill="var(--color-primary-green)" opacity="0.025"/>
+            <circle cx="450" cy="350" r="90" fill="var(--color-primary-green)" opacity="0.035"/>
+          </svg>
+        </div>
+
+        <!-- Content -->
+        <div class="welcome-content">
+          <h1 class="welcome-title">
+            Welkom in<br>
+            <span class="welcome-title-mobus">MOBUS</span>
+          </h1>
+
+          <p class="welcome-description">
+            Werk samen en laat je verrassen.<br>
+            Ontdek verbanden die je zelf nog niet zag.
+          </p>
+
+          <button id="btn-start-session" class="welcome-start-btn">
+            <span>Start een groeisessie</span>
+            <span class="welcome-btn-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Experience Choice Screen -->
+    <div id="screen-choose" class="app-screen">
+      <div class="choose-screen-inner">
+        <div class="choose-header">
+          <h1 class="choose-title">Kies een groeivorm</h1>
+          <p class="choose-subtitle">Selecteer een ervaring om de tabletop te activeren.</p>
+        </div>
+
+        <div class="choose-grid">
+          <!-- Active: Creatieve groeisessie -->
+          <div id="card-growth-experience" class="choose-card choose-card-active">
+            <div class="choose-card-icon">🌱</div>
+            <h3 class="choose-card-title">Creatieve groeisessie</h3>
+            <p class="choose-card-desc">Plant zaden op het canvas. Verbind en voed ze tot kluiten met AI voeding.</p>
+            <div class="choose-card-badge active-badge">Tik om te starten</div>
+          </div>
+
+          <!-- Binnenkort beschikbaar -->
+          <div class="choose-card choose-card-disabled">
+            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
+            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+          </div>
+
+          <div class="choose-card choose-card-disabled">
+            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
+            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+          </div>
+
+          <div class="choose-card choose-card-disabled">
+            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
+            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+          </div>
+
+          <div class="choose-card choose-card-disabled">
+            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
+            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+          </div>
+
+          <div class="choose-card choose-card-disabled">
+            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
+            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Screen -->
+    <div id="screen-summary" class="app-screen">
+      <div class="screen-content glass-panel wide-panel">
+        <h1 class="screen-title text-center">Oogst</h1>
+        <p class="screen-subtitle text-center mb-6">Jullie belangrijkste ideeën, verbindingen en groeipad zijn gebundeld.</p>
+        
+        <div class="summary-details">
+          <!-- Left side / Session info -->
+          <div class="summary-left">
+            <div class="summary-section">
+              <label class="summary-label">Oogsttitel</label>
+              <div class="title-input-wrapper">
+                <input id="summary-session-title" type="text" value="Creatieve Groeisessie" placeholder="Geef je sessie een naam..." class="summary-title-input" />
+              </div>
+            </div>
+            
+            <!-- Compact stats row -->
+            <div id="summary-stats-row" class="summary-stats-row"></div>
+            
+            <!-- Conclusion -->
+            <div class="summary-section">
+              <label class="summary-label">Groeipad</label>
+              <div id="summary-conclusion" class="summary-conclusion-text"></div>
+            </div>
+            
+            <!-- Nudge details -->
+            <div class="summary-nudge-details">
+              <div class="summary-nudge-section">
+                <label class="summary-label">Gebruikte voeding</label>
+                <div id="summary-used-nudges" class="summary-nudge-tags"></div>
+              </div>
+              <div class="summary-nudge-section">
+                <label class="summary-label">Niet gebruikte voeding</label>
+                <div id="summary-skipped-nudges" class="summary-nudge-tags"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right side / Session output -->
+          <div class="summary-right">
+            <label class="summary-label">Geplante zaden & kluiten</label>
+            <div id="summary-groups-list" class="summary-groups-list">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-actions">
+          <button id="btn-annuleren" class="action-btn secondary">
+            <span>Terug naar canvas</span>
+          </button>
+          <button id="btn-afronden" class="action-btn">
+            <span>Oogst mailen</span>
+          </button>
+        </div>
+        
+        <!-- Subtle notifications toast inside summary screen -->
+        <div id="summary-toast" class="summary-toast">Oogst succesvol!</div>
+
+        <!-- Email Send Modal Overlay -->
+        <div id="email-modal" class="email-modal-overlay">
+          <div class="email-modal-card glass-panel">
+            <h3 class="email-modal-title">Wil je de oogst toegestuurd krijgen?</h3>
+            <div class="email-input-wrapper">
+              <input id="email-input" type="email" placeholder="Vul hier je e-mail in…" class="email-input" autocomplete="email" />
+              <span id="email-error" class="email-error">Vul een geldig e-mailadres in</span>
+            </div>
+            <button id="btn-email-send" class="action-btn email-send-btn">
+              <span>Versturen</span>
+            </button>
+            <button id="btn-email-skip" class="email-skip-btn">Nee, bedankt</button>
+            <div id="email-success" class="email-success-msg"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- End Screen -->
+    <div id="screen-end" class="app-screen">
+      <div class="screen-content glass-panel text-center">
+        <div class="end-icon-wrapper animate-pulse">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#718238" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="end-check-icon">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <h1 class="screen-title">De oogst is opgeslagen.</h1>
+        <p class="screen-subtitle mb-6">De creatieve groei is weerspiegeld op het wandscherm. Bedankt voor het mede-groeien.</p>
+        <button id="btn-restart" class="action-btn">
+          <span>Nieuwe groeisessie</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/main.js"></script>

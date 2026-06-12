@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOBUS - Wandscherm</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body class="wall-body">
+  <div class="wall-container">
+    <!-- Ambient nature background elements -->
+    <div class="ambient-glow"></div>
+    <div class="ambient-particles" id="particles"></div>
+
+    <!-- Tree SVG container -->
+    <div class="tree-canvas">
+      <svg viewBox="0 0 400 400" class="wall-tree-svg">
+        <!-- Ground / roots -->
+        <path d="M 50 360 Q 200 350 350 360" stroke="rgba(76, 90, 42, 0.25)" stroke-width="6" fill="none" stroke-linecap="round"/>
+        <!-- Main Trunk -->
+        <path id="wall-trunk" d="M 200 360 Q 200 320 200 300" stroke="#4c5a2a" stroke-width="12" stroke-linecap="round" fill="none"/>
+        
+        <!-- Dynamic branches and leaves will be injected here -->
+        <g id="wall-branches"></g>
+        <g id="wall-leaves"></g>
+      </svg>
+    </div>
+
+    <!-- Info overlay -->
+    <div class="wall-info">
+      <div class="wall-status-badge">Oogstscherm Actief</div>
+      <h2 id="wall-session-title" class="wall-session-title">Creatieve Speelruimte</h2>
+      <p id="wall-status-text" class="wall-status-text">Wachten op creatieve groeisessie...</p>
+      <div class="wall-stats-row">
+        <span class="wall-stat"><strong id="wall-stat-ideas">0</strong> Zaden</span>
+        <span class="wall-stat"><strong id="wall-stat-groups">0</strong> Kluiten</span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/wall.js"></script>
+</body>
+</html>

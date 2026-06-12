@@ -71,7 +71,7 @@ export class InputCard {
     
     const placeholder = document.createElement('span');
     placeholder.className = 'input-card-placeholder';
-    placeholder.innerText = 'Typ je idee…';
+    placeholder.innerText = 'Wat wil je laten groeien?…';
     display.appendChild(placeholder);
     
     const textSpan = document.createElement('span');
@@ -161,7 +161,7 @@ export class InputCard {
     
     const cancelBtn = document.createElement('button');
     cancelBtn.className = 'input-card-cancel';
-    cancelBtn.innerText = 'Annuleren';
+    cancelBtn.innerText = 'Terug naar canvas';
     cancelBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -170,7 +170,7 @@ export class InputCard {
     
     const submitBtn = document.createElement('button');
     submitBtn.className = 'input-card-submit';
-    submitBtn.innerText = this.sourceToken ? 'Opslaan' : 'Plaats idee';
+    submitBtn.innerText = this.sourceToken ? 'Verzorgen' : 'Planten';
     submitBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -223,7 +223,7 @@ export class InputCard {
       this.domElement.style.top = `${ty}px`;
       this.domElement.style.width = `${width}px`;
       this.domElement.style.height = `${height}px`;
-      this.domElement.style.borderRadius = '28px';
+      this.domElement.style.borderRadius = '20px';
       
       if (this.sourceToken) {
         this.domElement.style.background = '';
