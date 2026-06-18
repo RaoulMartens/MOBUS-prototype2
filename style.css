@@ -2344,7 +2344,7 @@ body, html {
 /* Standalone Wall Screen Styles */
 /* Standalone Wall Screen Styles */
 .wall-body {
-  background: radial-gradient(circle at 50% 30%, #fffdf6 0%, #faf6ec 50%, #eae3d2 100%) !important;
+  background: linear-gradient(180deg, #dbeaf0 0%, #eef4ef 46%, #fff8eb 82%, #efe5d2 100%) !important;
   color: #35401f;
   overflow: hidden;
   width: 100vw;

@@ -5,6 +5,14 @@ const canvas = document.getElementById('wall-canvas');
 const ctx = canvas.getContext('2d');
 let width, height;
 
+const SKY_TOP = '#dbeaf0';
+const SKY_MID = '#eef4ef';
+const SKY_BOTTOM = '#fff8eb';
+const STEM_COLORS = ['#4c5a2a', '#61733b', '#6f735d', '#7c8a46'];
+const LEAF_COLORS = ['#7f9148', '#9a9f55', '#6f8b4a', '#b3a766'];
+const BLOSSOM_COLORS = ['#d9c89f', '#e6bfa9', '#c7d3a2', '#b8c9d9', '#e2d7b8'];
+const MEADOW_COLORS = ['rgba(127, 145, 72, 0.48)', 'rgba(154, 159, 85, 0.4)', 'rgba(111, 115, 93, 0.34)'];
+
 // Hashing helper for stable horizontal positions
 function hashStringToNum(str) {
   let hash = 0;
@@ -21,6 +29,49 @@ function SeededRandom(seed) {
     s = (s * 9301 + 49297) % 233280;
     return s / 233280;
   };
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function drawLeaf(cContext, scale, color, variant = 0) {
+  cContext.beginPath();
+  if (variant === 1) {
+    cContext.ellipse(0, -8 * scale, 3.8 * scale, 9 * scale, 0, 0, Math.PI * 2);
+  } else if (variant === 2) {
+    cContext.moveTo(0, 0);
+    cContext.quadraticCurveTo(-8 * scale, -7 * scale, -3 * scale, -17 * scale);
+    cContext.quadraticCurveTo(2 * scale, -13 * scale, 7 * scale, -17 * scale);
+    cContext.quadraticCurveTo(8 * scale, -7 * scale, 0, 0);
+  } else {
+    cContext.moveTo(0, 0);
+    cContext.quadraticCurveTo(-6 * scale, -7 * scale, -4 * scale, -15 * scale);
+    cContext.quadraticCurveTo(0, -18 * scale, 4 * scale, -15 * scale);
+    cContext.quadraticCurveTo(6 * scale, -7 * scale, 0, 0);
+  }
+  cContext.fillStyle = color;
+  cContext.fill();
+  cContext.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+  cContext.lineWidth = 0.7 * scale;
+  cContext.stroke();
+}
+
+function drawSimpleFlower(cContext, scale, color, petalCount = 5) {
+  const petalSize = 5 * scale;
+  cContext.fillStyle = color;
+  for (let i = 0; i < petalCount; i++) {
+    cContext.save();
+    cContext.rotate((Math.PI * 2 * i) / petalCount);
+    cContext.beginPath();
+    cContext.ellipse(0, -petalSize, petalSize * 0.62, petalSize, 0, 0, Math.PI * 2);
+    cContext.fill();
+    cContext.restore();
+  }
+  cContext.beginPath();
+  cContext.arc(0, 0, petalSize * 0.34, 0, Math.PI * 2);
+  cContext.fillStyle = '#fffdf6';
+  cContext.fill();
 }
 
 // Spore / Seed particle drifting across the landscape
@@ -64,6 +115,76 @@ class SeedParticle {
   }
 }
 
+class Cloud {
+  constructor(w, h, index) {
+    this.index = index;
+    this.x = [0.18, 0.48, 0.78, 1.08][index % 4] * w;
+    this.y = h * ([0.12, 0.2, 0.15, 0.25][index % 4]);
+    this.scale = [0.95, 1.18, 0.86, 1.05][index % 4];
+    this.speed = 3.5 + index * 1.35;
+    this.opacity = 0.38 + index * 0.025;
+  }
+
+  tick(dt, w, h) {
+    this.x += this.speed * dt;
+    if (this.x > w + 180 * this.scale) {
+      this.x = -180 * this.scale;
+      this.y = h * (0.1 + Math.random() * 0.18);
+      this.scale = 0.9 + Math.random() * 0.34;
+    }
+  }
+
+  draw(cContext) {
+    const drawCloudShape = () => {
+      cContext.beginPath();
+      cContext.moveTo(-112, 16);
+      cContext.bezierCurveTo(-104, -4, -76, -14, -50, 1);
+      cContext.bezierCurveTo(-35, -32, 14, -42, 40, -9);
+      cContext.bezierCurveTo(65, -23, 101, -10, 111, 16);
+      cContext.bezierCurveTo(94, 35, -86, 39, -112, 16);
+      cContext.closePath();
+    };
+
+    cContext.save();
+    cContext.translate(this.x, this.y);
+    cContext.scale(this.scale, this.scale);
+
+    cContext.save();
+    cContext.translate(0, 10);
+    drawCloudShape();
+    cContext.fillStyle = `rgba(120, 148, 151, ${this.opacity * 0.12})`;
+    cContext.fill();
+    cContext.restore();
+
+    const cloudFill = cContext.createLinearGradient(0, -42, 0, 36);
+    cloudFill.addColorStop(0, `rgba(255, 255, 250, ${this.opacity + 0.34})`);
+    cloudFill.addColorStop(0.62, `rgba(255, 253, 246, ${this.opacity + 0.24})`);
+    cloudFill.addColorStop(1, `rgba(235, 244, 241, ${this.opacity + 0.14})`);
+    drawCloudShape();
+    cContext.fillStyle = cloudFill;
+    cContext.fill();
+
+    cContext.save();
+    cContext.translate(-12, -7);
+    cContext.scale(0.78, 0.62);
+    drawCloudShape();
+    cContext.fillStyle = `rgba(255, 255, 255, ${this.opacity * 0.16})`;
+    cContext.fill();
+    cContext.restore();
+
+    cContext.beginPath();
+    cContext.moveTo(-84, 2);
+    cContext.bezierCurveTo(-55, -14, -24, -6, -5, -17);
+    cContext.bezierCurveTo(25, -33, 48, -16, 66, -7);
+    cContext.strokeStyle = `rgba(255, 255, 255, ${this.opacity * 0.46})`;
+    cContext.lineWidth = 1.4;
+    cContext.lineCap = 'round';
+    cContext.stroke();
+
+    cContext.restore();
+  }
+}
+
 // Cluster Plant representing an idea group / cluster
 class ClusterPlant {
   constructor(title, childCount) {
@@ -74,6 +195,9 @@ class ClusterPlant {
     this.wiggleOffset = Math.random() * Math.PI * 2;
     this.x = 0;
     this.randomSeed = hashStringToNum(title) || 123;
+    this.styleSeed = this.randomSeed % 5;
+    this.stemColor = STEM_COLORS[this.randomSeed % STEM_COLORS.length];
+    this.leafColor = LEAF_COLORS[(this.randomSeed >> 2) % LEAF_COLORS.length];
     this.branches = [];
     this.blossoms = [];
     this.generateStructure();
@@ -94,6 +218,7 @@ class ClusterPlant {
 
     // Trunk height matches count of children in cluster
     const mainHeight = 70 + Math.min(110, this.childCount * 18) + rng() * 25;
+    const childRichness = clamp(this.childCount, 2, 8);
     
     // Main Trunk
     this.branches.push({
@@ -109,7 +234,7 @@ class ClusterPlant {
     const mainTrunk = this.branches[0];
     
     // Split into secondary stems
-    const branchCount = 2 + Math.floor(rng() * 2) + Math.min(3, Math.floor(this.childCount / 3));
+    const branchCount = 2 + Math.floor(rng() * 2) + Math.min(4, Math.floor(this.childCount / 2));
     for (let i = 0; i < branchCount; i++) {
       const angle = (-42 + (i / (branchCount - 1)) * 84 + (rng() - 0.5) * 10) * Math.PI / 180;
       const length = mainHeight * (0.45 + rng() * 0.35);
@@ -131,7 +256,7 @@ class ClusterPlant {
       });
 
       // Twigs branching further
-      const twigCount = 1 + Math.floor(rng() * 2);
+      const twigCount = 1 + Math.floor(rng() * 2) + (childRichness > 5 ? 1 : 0);
       for (let j = 0; j < twigCount; j++) {
         const tAngle = angle + (rng() - 0.5) * 55 * Math.PI / 180;
         const tLength = length * (0.45 + rng() * 0.25);
@@ -171,6 +296,8 @@ class ClusterPlant {
           ratio: ratio,
           angleOffset: angleOffset * Math.PI / 180,
           scale: 0.75 + rng() * 0.35,
+          variant: Math.floor(rng() * 3),
+          color: LEAF_COLORS[Math.floor(rng() * LEAF_COLORS.length)],
           growthDelay: b.growthDelay + 0.15 + rng() * 0.2
         });
       }
@@ -183,7 +310,8 @@ class ClusterPlant {
           ratio: 1.0,
           angleOffset: (rng() - 0.5) * 25 * Math.PI / 180,
           scale: 1.1 + rng() * 0.4,
-          colorIdx: Math.floor(rng() * 4),
+          colorIdx: Math.floor(rng() * BLOSSOM_COLORS.length),
+          petalCount: 4 + Math.floor(rng() * 3),
           growthDelay: b.growthDelay + 0.35 + rng() * 0.15
         });
       }
@@ -269,18 +397,11 @@ class ClusterPlant {
         cContext.quadraticCurveTo(cpXAtT, cpYAtT, xAtT, yAtT);
       }
       
-      cContext.strokeStyle = '#4c5a2a'; // primary green branch color
+      cContext.strokeStyle = this.stemColor;
       cContext.lineWidth = b.width * (0.5 + 0.5 * branchGrowth);
       cContext.lineCap = 'round';
       cContext.stroke();
     });
-
-    const colors = [
-      '#9a9f55', // sage
-      '#d9c89f', // nutrient
-      '#718238', // harvest
-      '#b8b2a1'  // compost
-    ];
 
     this.blossoms.forEach(bl => {
       const bNode = swayedNodes[bl.branchId];
@@ -309,33 +430,9 @@ class ClusterPlant {
       cContext.rotate(baseAngle + bl.angleOffset);
       
       if (bl.type === 'leaf') {
-        // Draw leaf
-        cContext.beginPath();
-        cContext.moveTo(0, 0);
-        cContext.quadraticCurveTo(-6 * finalScale, -7 * finalScale, -4 * finalScale, -15 * finalScale);
-        cContext.quadraticCurveTo(0, -18 * finalScale, 4 * finalScale, -15 * finalScale);
-        cContext.quadraticCurveTo(6 * finalScale, -7 * finalScale, 0, 0);
-        cContext.fillStyle = '#718238'; // harvest green leaves
-        cContext.fill();
-        cContext.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-        cContext.lineWidth = 0.8;
-        cContext.stroke();
+        drawLeaf(cContext, finalScale, bl.color || this.leafColor, bl.variant || 0);
       } else {
-        // Draw open blossom flower
-        const color = colors[bl.colorIdx % colors.length];
-        const petalSize = 5 * finalScale;
-        cContext.fillStyle = color;
-        for (let i = 0; i < 5; i++) {
-          cContext.rotate((Math.PI * 2) / 5);
-          cContext.beginPath();
-          cContext.ellipse(0, -petalSize, petalSize * 0.7, petalSize, 0, 0, Math.PI * 2);
-          cContext.fill();
-        }
-        
-        cContext.beginPath();
-        cContext.arc(0, 0, petalSize * 0.4, 0, Math.PI * 2);
-        cContext.fillStyle = '#FFFDF6';
-        cContext.fill();
+        drawSimpleFlower(cContext, finalScale, BLOSSOM_COLORS[bl.colorIdx % BLOSSOM_COLORS.length], bl.petalCount || 5);
       }
       cContext.restore();
     });
@@ -353,6 +450,10 @@ class SoloSprout {
     this.wiggleOffset = Math.random() * Math.PI * 2;
     this.x = 0;
     this.randomSeed = hashStringToNum(title) || 456;
+    this.variant = this.randomSeed % 4;
+    this.leafColor = LEAF_COLORS[this.randomSeed % LEAF_COLORS.length];
+    this.stemColor = STEM_COLORS[(this.randomSeed >> 3) % STEM_COLORS.length];
+    this.baseHeight = 24 + (this.randomSeed % 16);
   }
 
   tick(dt) {
@@ -382,36 +483,55 @@ class SoloSprout {
       return;
     }
 
-    const sproutHeight = 30 * growth;
+    const sproutHeight = this.baseHeight * growth;
     const sway = Math.sin(time * 2.6 + this.wiggleOffset) * windVal * 6;
     
     // Draw sprout stem (thin light green curve)
     cContext.beginPath();
     cContext.moveTo(0, 0);
     cContext.quadraticCurveTo(sway * 0.5, -sproutHeight * 0.5, sway, -sproutHeight);
-    cContext.strokeStyle = '#9a9f55'; // sage green stem
-    cContext.lineWidth = 2.2;
+    cContext.strokeStyle = this.stemColor;
+    cContext.lineWidth = 1.8 + (this.variant === 3 ? 0.5 : 0);
     cContext.stroke();
 
     cContext.translate(sway, -sproutHeight);
-    
-    // Left leaf
-    cContext.save();
-    cContext.rotate(-Math.PI / 4 + sway * 0.05);
-    cContext.beginPath();
-    cContext.ellipse(-4 * growth, -4 * growth, 2.5 * growth, 5.5 * growth, -Math.PI/4, 0, Math.PI * 2);
-    cContext.fillStyle = '#9a9f55';
-    cContext.fill();
-    cContext.restore();
 
-    // Right leaf
-    cContext.save();
-    cContext.rotate(Math.PI / 4 + sway * 0.05);
-    cContext.beginPath();
-    cContext.ellipse(4 * growth, -4 * growth, 2.5 * growth, 5.5 * growth, Math.PI/4, 0, Math.PI * 2);
-    cContext.fillStyle = '#9a9f55';
-    cContext.fill();
-    cContext.restore();
+    if (this.variant === 0) {
+      cContext.save();
+      cContext.rotate(-Math.PI / 4 + sway * 0.05);
+      drawLeaf(cContext, growth * 0.42, this.leafColor, 1);
+      cContext.restore();
+
+      cContext.save();
+      cContext.rotate(Math.PI / 4 + sway * 0.05);
+      drawLeaf(cContext, growth * 0.42, this.leafColor, 1);
+      cContext.restore();
+    } else if (this.variant === 1) {
+      for (let i = 0; i < 3; i++) {
+        cContext.save();
+        cContext.translate((i - 1) * 4 * growth, i * 2 * growth);
+        cContext.rotate((-0.35 + i * 0.35) + sway * 0.04);
+        drawLeaf(cContext, growth * 0.32, this.leafColor, i % 2);
+        cContext.restore();
+      }
+    } else if (this.variant === 2) {
+      cContext.save();
+      cContext.rotate(-0.18 + sway * 0.04);
+      drawLeaf(cContext, growth * 0.34, this.leafColor, 2);
+      cContext.restore();
+      cContext.save();
+      cContext.translate(0, -7 * growth);
+      drawSimpleFlower(cContext, growth * 0.55, BLOSSOM_COLORS[this.randomSeed % BLOSSOM_COLORS.length], 4);
+      cContext.restore();
+    } else {
+      for (let i = 0; i < 4; i++) {
+        cContext.save();
+        cContext.translate(0, -i * 4 * growth);
+        cContext.rotate((i % 2 === 0 ? -0.58 : 0.58) + sway * 0.04);
+        drawLeaf(cContext, growth * 0.26, this.leafColor, 0);
+        cContext.restore();
+      }
+    }
 
     cContext.restore();
   }
@@ -422,6 +542,7 @@ const activePlants = new Map();
 const activeSprouts = new Map();
 const activeConnections = new Map();
 const particles = [];
+const clouds = [];
 
 let globalTime = 0;
 let currentWind = 0.15;
@@ -444,6 +565,37 @@ function initParticles() {
   for (let i = 0; i < 20; i++) {
     particles.push(new SeedParticle(width, height, true));
   }
+}
+
+function initClouds() {
+  clouds.length = 0;
+  for (let i = 0; i < 4; i++) {
+    clouds.push(new Cloud(width, height, i));
+  }
+}
+
+function drawSky(cContext, w, h) {
+  const sky = cContext.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, SKY_TOP);
+  sky.addColorStop(0.42, SKY_MID);
+  sky.addColorStop(0.82, SKY_BOTTOM);
+  sky.addColorStop(1, '#efe5d2');
+  cContext.fillStyle = sky;
+  cContext.fillRect(0, 0, w, h);
+
+  const glow = cContext.createRadialGradient(w * 0.18, h * 0.12, 0, w * 0.18, h * 0.12, w * 0.8);
+  glow.addColorStop(0, 'rgba(255, 253, 246, 0.48)');
+  glow.addColorStop(0.42, 'rgba(255, 253, 246, 0.16)');
+  glow.addColorStop(1, 'rgba(255, 253, 246, 0)');
+  cContext.fillStyle = glow;
+  cContext.fillRect(0, 0, w, h);
+}
+
+function drawClouds(cContext, dt, w, h) {
+  clouds.forEach(cloud => {
+    cloud.tick(dt, w, h);
+    cloud.draw(cContext);
+  });
 }
 
 // Draw root connections and aerial vines
@@ -535,6 +687,80 @@ function drawGround(cContext, w, h) {
   cContext.fillStyle = '#dcd7c5'; // Sage mud
   cContext.fill();
   
+  cContext.restore();
+}
+
+function drawMeadowDetails(cContext, w, h, time, windVal) {
+  const groundY = h * 0.88;
+  const detailCount = Math.max(42, Math.floor(w / 24));
+
+  cContext.save();
+  for (let i = 0; i < detailCount; i++) {
+    const seed = (i * 92821 + 17) % 9973;
+    const x = (i / detailCount) * w + ((seed % 37) - 18);
+    const baseY = groundY + 8 + (seed % 54);
+    const heightVal = 18 + (seed % 38);
+    const sway = Math.sin(time * 1.4 + seed) * windVal * 4;
+    const color = MEADOW_COLORS[seed % MEADOW_COLORS.length];
+
+    cContext.strokeStyle = color;
+    cContext.lineWidth = 1.15 + (seed % 3) * 0.22;
+    cContext.lineCap = 'round';
+    cContext.beginPath();
+    cContext.moveTo(x, baseY);
+    cContext.quadraticCurveTo(x + sway * 0.5, baseY - heightVal * 0.55, x + sway, baseY - heightVal);
+    cContext.stroke();
+
+    if (seed % 5 === 0) {
+      cContext.save();
+      cContext.translate(x + sway * 0.45, baseY - heightVal * 0.42);
+      cContext.rotate(seed % 2 === 0 ? 0.62 : -0.62);
+      drawLeaf(cContext, 0.24 + (seed % 4) * 0.035, LEAF_COLORS[(seed + 1) % LEAF_COLORS.length], 1);
+      cContext.restore();
+    }
+
+    if (seed % 3 === 0) {
+      cContext.save();
+      cContext.translate(x + sway, baseY - heightVal * 0.68);
+      cContext.rotate(seed % 2 === 0 ? -0.65 : 0.65);
+      drawLeaf(cContext, 0.32 + (seed % 5) * 0.04, LEAF_COLORS[seed % LEAF_COLORS.length], seed % 3);
+      cContext.restore();
+    }
+
+    if (seed % 9 === 0) {
+      cContext.save();
+      cContext.translate(x + sway, baseY - heightVal - 2);
+      drawSimpleFlower(cContext, 0.42, BLOSSOM_COLORS[seed % BLOSSOM_COLORS.length], 4);
+      cContext.restore();
+    }
+  }
+
+  const tuftCount = Math.max(8, Math.floor(w / 150));
+  for (let t = 0; t < tuftCount; t++) {
+    const seed = (t * 7151 + 311) % 8191;
+    const x = (t + 0.5) * (w / tuftCount) + ((seed % 61) - 30);
+    const baseY = groundY + 28 + (seed % 34);
+    const stems = 4 + (seed % 4);
+    for (let s = 0; s < stems; s++) {
+      const spread = (s - (stems - 1) / 2) * 7;
+      const heightVal = 34 + ((seed + s * 13) % 42);
+      const sway = Math.sin(time * 1.2 + seed + s) * windVal * 5;
+      cContext.strokeStyle = MEADOW_COLORS[(seed + s) % MEADOW_COLORS.length];
+      cContext.lineWidth = 1.6;
+      cContext.beginPath();
+      cContext.moveTo(x, baseY);
+      cContext.quadraticCurveTo(x + spread * 0.4 + sway, baseY - heightVal * 0.55, x + spread + sway, baseY - heightVal);
+      cContext.stroke();
+
+      if (s % 2 === 0) {
+        cContext.save();
+        cContext.translate(x + spread + sway, baseY - heightVal * 0.72);
+        cContext.rotate(spread < 0 ? -0.7 : 0.7);
+        drawLeaf(cContext, 0.36, LEAF_COLORS[(seed + s) % LEAF_COLORS.length], (seed + s) % 3);
+        cContext.restore();
+      }
+    }
+  }
   cContext.restore();
 }
 
@@ -672,8 +898,9 @@ function loop(timestamp) {
 
   ctx.clearRect(0, 0, width, height);
 
-  // Background sunlight filtering
+  drawSky(ctx, width, height);
   drawSunrays(ctx, width, height, globalTime);
+  drawClouds(ctx, dt, width, height);
 
   // Maintain floating seed particles
   const maxParticles = isInteracting ? 36 : 16;
@@ -715,10 +942,14 @@ function loop(timestamp) {
     }
   }
 
-  // Draw background elements and roots
+  // Draw roots and vines before the visible meadow layer.
   drawConnections(ctx, width, height, globalTime);
 
-  // Draw active sprouts and cluster plants
+  // Layered terrain and small meadow details
+  drawGround(ctx, width, height);
+  drawMeadowDetails(ctx, width, height, globalTime, currentWind);
+
+  // Draw active sprouts and cluster plants above the terrain.
   activePlants.forEach(plant => {
     plant.draw(ctx, width, height, currentWind, globalTime);
   });
@@ -727,9 +958,6 @@ function loop(timestamp) {
     sprout.draw(ctx, width, height, currentWind, globalTime);
   });
 
-  // Layered terrain
-  drawGround(ctx, width, height);
-
   requestAnimationFrame(loop);
 }
 
@@ -737,9 +965,11 @@ function loop(timestamp) {
 function init() {
   resize();
   initParticles();
+  initClouds();
   window.addEventListener('resize', () => {
     resize();
     initParticles();
+    initClouds();
   });
   requestAnimationFrame(loop);
 }
