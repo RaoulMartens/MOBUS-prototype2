@@ -557,13 +557,50 @@ class CanvasManager {
       });
     });
   }
+
+  getWallSyncSessionId() {
+    return new URLSearchParams(window.location.search).get('session') || 'mobus-live';
+  }
+
+  emitWallEvent(type, data = null, immediate = false) {
+    const event = { type, data, sentAt: Date.now() };
+    if (this.broadcastChannel) {
+      this.broadcastChannel.postMessage(event);
+    }
+    this.postWallEvent(event, immediate);
+  }
+
+  postWallEvent(event, immediate = false) {
+    if (!immediate && Date.now() - (this.lastWallSyncAt || 0) < 500) return;
+    this.lastWallSyncAt = Date.now();
+
+    fetch(`/api/wall-state?session=${encodeURIComponent(this.wallSyncSessionId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(event),
+      keepalive: JSON.stringify(event).length < 60000
+    }).catch((error) => {
+      if (!this.wallSyncOfflineNoted) {
+        console.info('Live wall sync unavailable; using local BroadcastChannel only.', error);
+        this.wallSyncOfflineNoted = true;
+      }
+    });
+  }
   
   setupStateManagement() {
     this.currentState = 'welcome';
     this.nudgesClickedCount = 0;
+    this.wallSyncSessionId = this.getWallSyncSessionId();
+    this.lastWallSyncAt = 0;
+    this.wallSyncOfflineNoted = false;
 
     // Establish BroadcastChannel for local synchronization
-    this.broadcastChannel = new BroadcastChannel('mobus-session');
+    try {
+      this.broadcastChannel = new BroadcastChannel('mobus-session');
+    } catch (error) {
+      this.broadcastChannel = null;
+      console.info('Local wall BroadcastChannel unavailable; live sync will still be attempted.', error);
+    }
 
     // Elements
     this.screensContainer = document.getElementById('app-screens');
@@ -1378,9 +1415,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     this.syncSessionSetupForm();
     
     // Broadcast reset event to the separate wall screen
-    if (this.broadcastChannel) {
-      this.broadcastChannel.postMessage({ type: 'reset' });
-    }
+    this.emitWallEvent('reset', null, true);
     
     this.hideAISuggestion(true);
     
@@ -1413,21 +1448,16 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     const isInteracting = this.activeDragCount > 0 || this.tokens.some(t => t.editing);
     
     // Broadcast state update to the separate wall screen
-    if (this.broadcastChannel) {
-      this.broadcastChannel.postMessage({
-        type: 'state-update',
-        data: {
-          totalIdeas,
-          soloIdeas,
-          groups,
-          sessionTitle,
-          activeState: this.currentState,
-          isInteracting,
-          createdConnections: this.createdConnections,
-          lastActivityTime: this.lastActivityTime
-        }
-      });
-    }
+    this.emitWallEvent('state-update', {
+      totalIdeas,
+      soloIdeas,
+      groups,
+      sessionTitle,
+      activeState: this.currentState,
+      isInteracting,
+      createdConnections: this.createdConnections,
+      lastActivityTime: this.lastActivityTime
+    });
   }
 
   spawnInitialTokens() {
@@ -1712,6 +1742,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
         source: tokenA.title,
         target: tokenB.title
       });
+      this.updateGrowthVisualization();
     }, 350);
   }
 
@@ -1752,6 +1783,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       if (gObj) {
         gObj.childTitles.push(token.title);
       }
+      this.updateGrowthVisualization();
     }, 350);
   }
   

@@ -1,5 +1,14 @@
-// Establish BroadcastChannel for local cross-tab communication
-const channel = new BroadcastChannel('mobus-session');
+// Establish local cross-tab communication, plus live polling for deployed screens.
+let channel = null;
+try {
+  channel = new BroadcastChannel('mobus-session');
+} catch (error) {
+  console.info('Local wall BroadcastChannel unavailable; live sync will still be attempted.', error);
+}
+
+const WALL_SYNC_SESSION_ID = new URLSearchParams(window.location.search).get('session') || 'mobus-live';
+let lastRemoteWallVersion = 0;
+let remoteSyncUnavailableNoted = false;
 
 const canvas = document.getElementById('wall-canvas');
 const ctx = canvas.getContext('2d');
@@ -874,16 +883,43 @@ function resetEcosystem() {
   isInteracting = false;
 }
 
-// Listen for updates from Main tabletop screen
-channel.onmessage = (event) => {
-  const { type, data } = event.data;
-  
+function handleWallEvent(event) {
+  if (!event || typeof event.type !== 'string') return;
+  const { type, data } = event;
+
   if (type === 'state-update') {
     handleStateUpdate(data);
   } else if (type === 'reset') {
     resetEcosystem();
   }
-};
+}
+
+// Listen for updates from Main tabletop screen in the same browser.
+if (channel) {
+  channel.onmessage = (event) => {
+    handleWallEvent(event.data);
+  };
+}
+
+async function pollRemoteWallState() {
+  try {
+    const response = await fetch(`/api/wall-state?session=${encodeURIComponent(WALL_SYNC_SESSION_ID)}`, {
+      cache: 'no-store'
+    });
+    if (!response.ok) return;
+
+    const payload = await response.json();
+    if (!payload || payload.version <= lastRemoteWallVersion) return;
+
+    lastRemoteWallVersion = payload.version;
+    handleWallEvent(payload.event);
+  } catch (error) {
+    if (!remoteSyncUnavailableNoted) {
+      console.info('Live wall sync unavailable; waiting for local BroadcastChannel updates.', error);
+      remoteSyncUnavailableNoted = true;
+    }
+  }
+}
 
 // Main tick loop
 let lastFrameTime = performance.now();
@@ -966,6 +1002,8 @@ function init() {
   resize();
   initParticles();
   initClouds();
+  pollRemoteWallState();
+  setInterval(pollRemoteWallState, 900);
   window.addEventListener('resize', () => {
     resize();
     initParticles();
