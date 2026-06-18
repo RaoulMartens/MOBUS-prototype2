@@ -11,7 +11,7 @@ const PLANT_ICON = `
   <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
 </svg>`;
 
-const PLANT_LABEL = 'Plantje';
+const PLANT_LABEL = 'Plant je idee';
 const BIN_LABEL = 'Snoei';
 
 const BIN_ICON = `
@@ -213,6 +213,73 @@ class SubtleSoundEffects {
     osc.start(now);
     osc.stop(now + 0.03);
   }
+
+  playConnectionSeed() {
+    this.playPlant();
+  }
+
+  playConnectionWarmth(strength = 0.5) {
+    this.init();
+    if (!this.ctx || !this.noiseBuffer) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+    const safeStrength = Math.max(0, Math.min(1, strength));
+    const now = this.ctx.currentTime;
+    const duration = 0.18 + safeStrength * 0.08;
+    const noiseNode = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+
+    noiseNode.buffer = this.noiseBuffer;
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(1.4 + safeStrength * 0.8, now);
+    filter.frequency.setValueAtTime(980 - safeStrength * 360, now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.012 + safeStrength * 0.018, now + 0.035);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    noiseNode.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    noiseNode.start(now, Math.random() * 1.2);
+    noiseNode.stop(now + duration);
+  }
+
+  playConnectionConfirm() {
+    this.playEdit();
+  }
+
+  playConnectionFade() {
+    this.init();
+    if (!this.ctx || !this.noiseBuffer) return;
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+
+    const now = this.ctx.currentTime;
+    const duration = 0.42;
+    const noiseNode = this.ctx.createBufferSource();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+
+    noiseNode.buffer = this.noiseBuffer;
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(2, now);
+    filter.frequency.setValueAtTime(1200, now);
+    filter.frequency.exponentialRampToValueAtTime(320, now + duration);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.036, now + 0.045);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    noiseNode.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    noiseNode.start(now, Math.random() * 1.1);
+    noiseNode.stop(now + duration);
+  }
+
+  playGrowth() {
+    this.playPlant();
+    setTimeout(() => this.playConnect(), 70);
+  }
 }
 
 class CanvasManager {
@@ -224,6 +291,9 @@ class CanvasManager {
     this.dismissedConnections = [];
     this.isSnapping = false;
     this.activeSuggestion = null;
+    this.activeConnectionSoundKey = null;
+    this.lastConnectionWarmthAt = 0;
+    this.lastConnectionWarmthLevel = 0;
     
     // Nudge states
     this.activeNudge = null;
@@ -285,7 +355,38 @@ class CanvasManager {
     };
     const side = sideLabels[btn.dataset.side] || 'deze zijde';
     const participant = btn.dataset.participant ? ` deelnemer ${btn.dataset.participant}` : '';
-    return `Plantje${participant} vanaf ${side}`;
+    return `${PLANT_LABEL}${participant} vanaf ${side}`;
+  }
+
+  playConnectionAppearanceSound(pairKey) {
+    if (!this.soundEffectsEnabled || this.activeConnectionSoundKey === pairKey) return;
+    this.activeConnectionSoundKey = pairKey;
+    this.lastConnectionWarmthAt = 0;
+    this.lastConnectionWarmthLevel = 0;
+    this.sounds.playConnectionSeed();
+  }
+
+  playConnectionWarmthCue(dist, softThreshold) {
+    if (!this.soundEffectsEnabled) return;
+    const warmth = Math.max(0, Math.min(1, 1 - ((dist - 105) / Math.max(1, softThreshold - 105))));
+    if (warmth < 0.25) return;
+
+    const now = Date.now();
+    const changedEnough = Math.abs(warmth - this.lastConnectionWarmthLevel) > 0.18;
+    if (now - this.lastConnectionWarmthAt < 520 || !changedEnough) return;
+
+    this.lastConnectionWarmthAt = now;
+    this.lastConnectionWarmthLevel = warmth;
+    this.sounds.playConnectionWarmth(warmth);
+  }
+
+  clearConnectionSoundState(playFade = false) {
+    if (playFade && this.soundEffectsEnabled && this.activeConnectionSoundKey) {
+      this.sounds.playConnectionFade();
+    }
+    this.activeConnectionSoundKey = null;
+    this.lastConnectionWarmthAt = 0;
+    this.lastConnectionWarmthLevel = 0;
   }
   
   setupGroupPreviewLine() {
@@ -610,7 +711,7 @@ class CanvasManager {
     if (toggleSound) {
       toggleSound.addEventListener('change', (e) => {
         this.soundEffectsEnabled = e.target.checked;
-        this.showNudgeFeedback(this.soundEffectsEnabled ? "Geluidseffecten aan" : "Geluidseffecten uit");
+        this.showNudgeFeedback(this.soundEffectsEnabled ? "Geluidsfeedback aan" : "Geluidsfeedback uit");
       });
     }
 
@@ -1550,7 +1651,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     this.hideAISuggestion(true);
     this.tokens = this.tokens.filter(t => t.id !== tokenA.id && t.id !== tokenB.id);
     if (this.soundEffectsEnabled) {
-      this.sounds.playConnect();
+      this.sounds.playGrowth();
     }
     
     const avgX = (tokenA.x + tokenB.x) / 2;
@@ -1618,7 +1719,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     this.hideAISuggestion(true);
     this.tokens = this.tokens.filter(t => t.id !== token.id);
     if (this.soundEffectsEnabled) {
-      this.sounds.playConnect();
+      this.sounds.playGrowth();
     }
     
     if (token.domElement) {
@@ -2547,10 +2648,14 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
         const matchesContent = checkThemeMatch(tA.title, tB.title);
         const softThreshold = matchesContent ? 350 : 260;
         const breakThreshold = matchesContent ? 600 : 480;
+        const isConnectionNudge = nudgeType === 'verbinden';
         
         // Snapping threshold checks
         if (dist > breakThreshold) {
           this.isSnapping = true;
+          if (isConnectionNudge) {
+            this.clearConnectionSoundState(true);
+          }
           if (hoverPath) hoverPath.onpointerdown = null;
           if (dot) {
             dot.style.pointerEvents = 'none';
@@ -2576,6 +2681,13 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
           }, 400);
           
           return;
+        }
+
+        if (isConnectionNudge) {
+          this.playConnectionAppearanceSound(pairKey);
+          if (isDraggingEither) {
+            this.playConnectionWarmthCue(dist, softThreshold);
+          }
         }
         
         const progress = dist > softThreshold ? Math.max(0, Math.min(1, (dist - softThreshold) / (breakThreshold - softThreshold))) : 0;
@@ -2640,6 +2752,9 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
           hoverPath.onpointerdown = (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (isConnectionNudge && this.soundEffectsEnabled) {
+              this.sounds.playConnectionConfirm();
+            }
             if (!dot || !dot.classList.contains('expanded')) {
               this.expandDot(tA, tB, dotX, dotY);
             }
@@ -2773,7 +2888,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       this.repelTokensFromExpandedDot(tA, tB, dotX, dotY);
     }
     
-    this.activeSuggestion = { pairKey, tA, tB, isClose: tB ? (dist < 130) : false };
+    this.activeSuggestion = { pairKey, tA, tB, type: nudgeType, isClose: tB ? (dist < 130) : false };
   }
 
   expandDot(tA, tB, dotX, dotY) {
@@ -2912,6 +3027,8 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     const path = document.getElementById('ai-suggestion-path');
     const hoverPath = document.getElementById('ai-suggestion-hover-path');
     const dot = document.getElementById('ai-suggestion-dot');
+    const shouldFadeConnectionSound = this.activeSuggestion?.type === 'verbinden' && !instant;
+    this.clearConnectionSoundState(shouldFadeConnectionSound);
     
     // Hide silence nudge button in top bar
     const silenceBtn = document.getElementById('silence-nudge-btn');

@@ -3558,14 +3558,30 @@ body, html {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 18px;
   padding: 10px 0;
   border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.settings-option-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .settings-option-label {
   font-family: var(--font-family);
   font-size: 13px;
   color: hsl(var(--muted-foreground));
+}
+
+.settings-option-help {
+  max-width: 250px;
+  font-family: var(--font-family);
+  font-size: 11px;
+  line-height: 1.35;
+  color: hsl(var(--muted-foreground) / 0.74);
 }
 
 .settings-participants-card {
