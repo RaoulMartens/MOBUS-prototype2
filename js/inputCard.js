@@ -1,3 +1,14 @@
+function triggerKeyFeedback() {
+  // 1. Physical vibration feedback (for supported mobile/tablet devices)
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    navigator.vibrate(15);
+  }
+  // 2. Subtle auditory natural key-tap sound (e.g. for iPads which lack vibration motors)
+  if (window.canvasManager && window.canvasManager.soundEffectsEnabled && window.canvasManager.sounds) {
+    window.canvasManager.sounds.playKeyTap();
+  }
+}
+
 export class InputCard {
   constructor(id, btnX, btnY, targetX, targetY, rotation, btnElement, onConfirm, onCancel, sourceToken = null) {
     this.id = id;
@@ -55,9 +66,8 @@ export class InputCard {
       seedIcon.className = 'input-card-plus-icon';
       seedIcon.innerHTML = `
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
-          <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
-          <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>`;
       el.appendChild(seedIcon);
     }
@@ -117,6 +127,7 @@ export class InputCard {
         key.addEventListener('pointerdown', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          triggerKeyFeedback();
           
           const isShift = this.typedText.length === 0;
           const charToInsert = isLetter 
@@ -139,6 +150,7 @@ export class InputCard {
     spaceKey.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      triggerKeyFeedback();
       this.addChar(' ');
     });
     
@@ -148,6 +160,7 @@ export class InputCard {
     backspaceKey.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      triggerKeyFeedback();
       this.deleteChar();
     });
     

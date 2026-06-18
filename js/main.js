@@ -5,20 +5,215 @@ import { generateGroupName, checkThemeMatch, getThemeExplanation } from './nameG
 
 const PLANT_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
-  <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
-  <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
+  <path d="M7 20h10"></path>
+  <path d="M10 20c5.5-2.5.8-6.4 3-10"></path>
+  <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.6-.3-1.2-.8-2-2.3-2.2-4.7 2.3-.1 3.9.3 4.5 1.3z"></path>
+  <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
 </svg>`;
 
-const PLANT_LABEL = 'plant idee';
-const BIN_LABEL = 'snoei';
+const PLANT_LABEL = 'Plantje';
+const BIN_LABEL = 'Snoei';
 
 const BIN_ICON = `
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-  <line x1="4" y1="7" x2="20" y2="7"></line>
-  <path d="M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7"></path>
-  <path d="M9 7V4.5a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 4.5V7"></path>
+  <circle cx="6" cy="6" r="3"></circle>
+  <circle cx="6" cy="18" r="3"></circle>
+  <path d="M20 4 8.12 15.88"></path>
+  <path d="M14.47 14.48 20 20"></path>
+  <path d="M8.12 8.12 12 12"></path>
 </svg>`;
+
+class SubtleSoundEffects {
+  constructor() {
+    this.ctx = null;
+    this.noiseBuffer = null;
+  }
+
+  init() {
+    if (this.ctx) return;
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Pre-generate a 2-second white noise buffer for natural sounds (like leaf rustles / breeze)
+      const bufferSize = this.ctx.sampleRate * 2;
+      this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = this.noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+    } catch (e) {
+      console.warn("Web Audio API not supported", e);
+    }
+  }
+
+  playPlant() {
+    // Sprout sound: Organic dewdrop water droplet "plop"
+    this.init();
+    if (!this.ctx) return;
+    
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gainNode = this.ctx.createGain();
+
+    osc.type = 'sine';
+    
+    // Frequency sweeps upwards quickly to mimic the bubble physics of a water droplet
+    osc.frequency.setValueAtTime(450, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
+
+    // Fast volume attack, quick decay
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.08, now + 0.015);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+
+    osc.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
+  playConnect() {
+    // Connection sound: Resonant bamboo/wood chime clack
+    this.init();
+    if (!this.ctx) return;
+    
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+
+    const now = this.ctx.currentTime;
+    const duration = 0.35;
+    
+    const masterGain = this.ctx.createGain();
+    masterGain.gain.setValueAtTime(0, now);
+    masterGain.gain.linearRampToValueAtTime(0.07, now + 0.005);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    masterGain.connect(this.ctx.destination);
+
+    // We synthesize a natural wood percussion sound using overtones characteristic of a wood bar
+    const baseFreq = 320; // Soft resonance around E4
+    const partials = [
+      { ratio: 1.0, vol: 1.0, decay: duration },
+      { ratio: 2.76, vol: 0.45, decay: duration * 0.35 }, // First overtone of wood bar
+      { ratio: 5.4, vol: 0.2, decay: duration * 0.12 }     // Second overtone of wood bar
+    ];
+
+    partials.forEach(p => {
+      const osc = this.ctx.createOscillator();
+      const partGain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(baseFreq * p.ratio, now);
+
+      partGain.gain.setValueAtTime(p.vol, now);
+      partGain.gain.exponentialRampToValueAtTime(0.0001, now + p.decay);
+
+      osc.connect(partGain);
+      partGain.connect(masterGain);
+
+      osc.start(now);
+      osc.stop(now + duration);
+    });
+  }
+
+  playSnoei() {
+    // Prune sound: Soft organic leaf rustle / wind breeze
+    this.init();
+    if (!this.ctx || !this.noiseBuffer) return;
+    
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+
+    const now = this.ctx.currentTime;
+    const duration = 0.45;
+
+    const noiseNode = this.ctx.createBufferSource();
+    noiseNode.buffer = this.noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.Q.setValueAtTime(2.2, now);
+    
+    // Sweep the bandpass frequency downwards to simulate rustling leaf motion
+    filter.frequency.setValueAtTime(1500, now);
+    filter.frequency.exponentialRampToValueAtTime(380, now + duration);
+
+    const gainNode = this.ctx.createGain();
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.06, now + 0.04); // Slightly soft attack for rustle
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+    noiseNode.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    noiseNode.start(now);
+    noiseNode.stop(now + duration);
+  }
+
+  playEdit() {
+    // Edit/confirm sound: Delicate tiny water ripple / drop
+    this.init();
+    if (!this.ctx) return;
+    
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gainNode = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(550, now);
+    osc.frequency.exponentialRampToValueAtTime(1300, now + 0.05);
+
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.05, now + 0.005);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+    osc.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  playKeyTap() {
+    // Keyboard key tap: Extremely soft organic wood block click
+    this.init();
+    if (!this.ctx) return;
+    
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gainNode = this.ctx.createGain();
+
+    osc.type = 'sine';
+    // Small pitch slide downwards for a soft hollow tap
+    osc.frequency.setValueAtTime(650, now);
+    osc.frequency.exponentialRampToValueAtTime(300, now + 0.03);
+
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.015, now + 0.002); // Very low volume to be subtle
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+
+    osc.connect(gainNode);
+    gainNode.connect(this.ctx.destination);
+
+    osc.start(now);
+    osc.stop(now + 0.03);
+  }
+}
 
 class CanvasManager {
   constructor() {
@@ -45,6 +240,9 @@ class CanvasManager {
     this.lastActivityTime = Date.now();
     this.smellEffectsEnabled = false;
     this.soundEffectsEnabled = true;
+    this.sounds = new SubtleSoundEffects();
+    this.sessionGoal = 'Creatieve groeisessie';
+    this.participantCount = 3;
     
     // Empty state tracking
     this.emptyStateVisible = false;
@@ -86,7 +284,8 @@ class CanvasManager {
       right: 'rechts'
     };
     const side = sideLabels[btn.dataset.side] || 'deze zijde';
-    return `Plant idee vanaf ${side}`;
+    const participant = btn.dataset.participant ? ` deelnemer ${btn.dataset.participant}` : '';
+    return `Plantje${participant} vanaf ${side}`;
   }
   
   setupGroupPreviewLine() {
@@ -107,12 +306,69 @@ class CanvasManager {
   setupEdgeButtons() {
     const buttons = document.querySelectorAll('.edge-button');
     buttons.forEach(btn => {
-      // pointerdown triggers faster than click for touch screens
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        this.spawnTokenFromButton(btn);
-      });
+      this.attachEdgeButton(btn);
+    });
+  }
+
+  attachEdgeButton(btn) {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.spawnTokenFromButton(btn);
+    });
+  }
+
+  createEdgeButton(side, positionPercent, participantIndex) {
+    const btn = document.createElement('button');
+    btn.className = `edge-button ${side}`;
+    btn.dataset.side = side;
+    btn.dataset.participant = String(participantIndex);
+    btn.type = 'button';
+    btn.setAttribute('aria-label', this.getPlantButtonAriaLabel(btn));
+
+    if (side === 'bottom') {
+      btn.style.left = `${positionPercent}%`;
+    } else {
+      btn.style.top = `${positionPercent}%`;
+    }
+
+    btn.innerHTML = `
+      <span class="icon">${PLANT_ICON}</span>
+      <span class="edge-button-label">${PLANT_LABEL}</span>
+    `;
+
+    this.attachEdgeButton(btn);
+    return btn;
+  }
+
+  configureParticipantEdgeButtons(count = this.participantCount) {
+    const canvas = document.getElementById('canvas');
+    const tokenContainer = document.getElementById('token-container');
+    if (!canvas || !tokenContainer) return;
+
+    document.querySelectorAll('.edge-button').forEach(btn => btn.remove());
+
+    const layouts = {
+      1: ['bottom'],
+      2: ['left', 'right'],
+      3: ['left', 'right', 'bottom'],
+      4: ['left', 'right', 'bottom', 'bottom'],
+      5: ['left', 'left', 'right', 'right', 'bottom'],
+      6: ['left', 'left', 'right', 'right', 'bottom', 'bottom']
+    };
+    const sides = layouts[Math.max(1, Math.min(6, count))];
+    const sideTotals = sides.reduce((acc, side) => {
+      acc[side] = (acc[side] || 0) + 1;
+      return acc;
+    }, {});
+    const sideSeen = {};
+
+    sides.forEach((side, index) => {
+      sideSeen[side] = (sideSeen[side] || 0) + 1;
+      const total = sideTotals[side];
+      const position = ((sideSeen[side]) / (total + 1)) * 100;
+      const btn = this.createEdgeButton(side, position, index + 1);
+      canvas.insertBefore(btn, tokenContainer);
     });
   }
   
@@ -161,6 +417,9 @@ class CanvasManager {
         this.tokens.push(token);
         this.lastActivityTime = Date.now();
         this.updateAISuggestions();
+        if (this.soundEffectsEnabled) {
+          this.sounds.playPlant();
+        }
       },
       () => {
         // Cancel - do nothing
@@ -221,18 +480,79 @@ class CanvasManager {
     });
 
     document.getElementById('card-growth-experience').addEventListener('click', () => {
-      this.transitionTo('tableSession');
+      this.syncSessionSetupForm();
+      this.transitionTo('sessionSetup');
     });
+
+    const sessionGoalInput = document.getElementById('session-goal-input');
+    const sessionGoalError = document.getElementById('session-goal-error');
+    const participantsMinus = document.getElementById('session-participants-minus');
+    const participantsPlus = document.getElementById('session-participants-plus');
+    const settingsParticipantsMinus = document.getElementById('settings-participants-minus');
+    const settingsParticipantsPlus = document.getElementById('settings-participants-plus');
+    const setupStartBtn = document.getElementById('btn-session-setup-start');
+
+    if (participantsMinus) {
+      participantsMinus.addEventListener('click', () => {
+        this.setParticipantCount(this.participantCount - 1);
+      });
+    }
+
+    if (participantsPlus) {
+      participantsPlus.addEventListener('click', () => {
+        this.setParticipantCount(this.participantCount + 1);
+      });
+    }
+
+    if (settingsParticipantsMinus) {
+      settingsParticipantsMinus.addEventListener('click', () => {
+        this.setParticipantCount(this.participantCount - 1);
+      });
+    }
+
+    if (settingsParticipantsPlus) {
+      settingsParticipantsPlus.addEventListener('click', () => {
+        this.setParticipantCount(this.participantCount + 1);
+      });
+    }
+
+    if (sessionGoalInput && sessionGoalError) {
+      sessionGoalInput.addEventListener('input', () => {
+        sessionGoalInput.classList.remove('invalid');
+        sessionGoalError.classList.remove('visible');
+      });
+    }
+
+    if (setupStartBtn) {
+      setupStartBtn.addEventListener('click', () => {
+        if (this.applySessionSetup()) {
+          this.transitionTo('tableSession');
+        }
+      });
+    }
 
     // Settings panel listeners
     const settingsBtn = document.getElementById('btn-open-settings');
     const settingsPanel = document.getElementById('settings-panel');
     const settingsCloseBtn = document.getElementById('btn-settings-close');
     const settingsFinishBtn = document.getElementById('btn-settings-finish');
+    const settingsHelpBtn = document.getElementById('btn-settings-help');
+    const helpBackBtn = document.getElementById('btn-help-back');
+    const settingsMainView = document.getElementById('settings-main-view');
+    const settingsHelpView = document.getElementById('settings-help-view');
+
+    const resetSettingsView = () => {
+      if (settingsMainView && settingsHelpView) {
+        settingsMainView.style.display = 'flex';
+        settingsHelpView.style.display = 'none';
+      }
+    };
 
     if (settingsBtn && settingsPanel) {
       settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        resetSettingsView();
+        this.setParticipantCount(this.participantCount);
         settingsPanel.classList.add('visible');
       });
     }
@@ -241,6 +561,7 @@ class CanvasManager {
       settingsCloseBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsPanel.classList.remove('visible');
+        resetSettingsView();
       });
     }
 
@@ -248,6 +569,7 @@ class CanvasManager {
       settingsFinishBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         settingsPanel.classList.remove('visible');
+        resetSettingsView();
         this.transitionTo('sessionSummary');
       });
     }
@@ -256,7 +578,23 @@ class CanvasManager {
       settingsPanel.addEventListener('click', (e) => {
         if (e.target === settingsPanel) {
           settingsPanel.classList.remove('visible');
+          resetSettingsView();
         }
+      });
+    }
+
+    if (settingsHelpBtn && settingsMainView && settingsHelpView) {
+      settingsHelpBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        settingsMainView.style.display = 'none';
+        settingsHelpView.style.display = 'flex';
+      });
+    }
+
+    if (helpBackBtn && settingsMainView && settingsHelpView) {
+      helpBackBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        resetSettingsView();
       });
     }
 
@@ -305,6 +643,113 @@ class CanvasManager {
     });
   }
 
+  setParticipantCount(nextCount) {
+    this.participantCount = Math.max(1, Math.min(6, nextCount));
+
+    const countEls = [
+      document.getElementById('session-participants-count'),
+      document.getElementById('settings-participants-count')
+    ];
+    countEls.forEach((countEl) => {
+      if (countEl) {
+        countEl.textContent = String(this.participantCount);
+      }
+    });
+
+    const minusBtns = [
+      document.getElementById('session-participants-minus'),
+      document.getElementById('settings-participants-minus')
+    ];
+    const plusBtns = [
+      document.getElementById('session-participants-plus'),
+      document.getElementById('settings-participants-plus')
+    ];
+    minusBtns.forEach((minusBtn) => {
+      if (minusBtn) minusBtn.disabled = this.participantCount <= 1;
+    });
+    plusBtns.forEach((plusBtn) => {
+      if (plusBtn) plusBtn.disabled = this.participantCount >= 6;
+    });
+
+    if (this.currentState === 'tableSession') {
+      this.configureParticipantEdgeButtons(this.participantCount);
+    }
+  }
+
+  syncSessionSetupForm() {
+    const goalInput = document.getElementById('session-goal-input');
+    if (goalInput) {
+      goalInput.value = this.sessionGoal === 'Creatieve groeisessie' ? '' : this.sessionGoal;
+      goalInput.classList.remove('invalid');
+    }
+
+    const goalError = document.getElementById('session-goal-error');
+    if (goalError) {
+      goalError.classList.remove('visible');
+    }
+
+    this.setParticipantCount(this.participantCount);
+
+    const smellToggle = document.getElementById('session-toggle-smell');
+    if (smellToggle) {
+      smellToggle.checked = this.smellEffectsEnabled;
+    }
+
+    const soundToggle = document.getElementById('session-toggle-sound');
+    if (soundToggle) {
+      soundToggle.checked = this.soundEffectsEnabled;
+    }
+  }
+
+  applySessionSetup() {
+    const goalInput = document.getElementById('session-goal-input');
+    const goalError = document.getElementById('session-goal-error');
+    const goal = goalInput ? goalInput.value.trim() : '';
+
+    if (!goal) {
+      if (goalInput) {
+        goalInput.classList.add('invalid');
+        goalInput.focus();
+      }
+      if (goalError) {
+        goalError.classList.add('visible');
+      }
+      return false;
+    }
+
+    this.sessionGoal = goal;
+
+    const smellToggle = document.getElementById('session-toggle-smell');
+    this.smellEffectsEnabled = smellToggle ? smellToggle.checked : false;
+    const settingsSmellToggle = document.getElementById('toggle-smell-effects');
+    if (settingsSmellToggle) {
+      settingsSmellToggle.checked = this.smellEffectsEnabled;
+    }
+
+    const soundToggle = document.getElementById('session-toggle-sound');
+    this.soundEffectsEnabled = soundToggle ? soundToggle.checked : true;
+    const settingsSoundToggle = document.getElementById('toggle-sound-effects');
+    if (settingsSoundToggle) {
+      settingsSoundToggle.checked = this.soundEffectsEnabled;
+    }
+
+    this.configureParticipantEdgeButtons(this.participantCount);
+    this.updateSessionTitle();
+    return true;
+  }
+
+  updateSessionTitle() {
+    const headerTitle = document.querySelector('.session-header-title');
+    if (headerTitle) {
+      headerTitle.textContent = this.sessionGoal;
+    }
+
+    const sessionTitleInput = document.getElementById('summary-session-title');
+    if (sessionTitleInput) {
+      sessionTitleInput.value = this.sessionGoal;
+    }
+  }
+
   transitionTo(state) {
     this.currentState = state;
 
@@ -312,6 +757,7 @@ class CanvasManager {
     const screens = {
       welcome: document.getElementById('screen-welcome'),
       chooseExperience: document.getElementById('screen-choose'),
+      sessionSetup: document.getElementById('screen-session-setup'),
       tableSession: null, // table session is canvas itself
       sessionSummary: document.getElementById('screen-summary'),
       endSession: document.getElementById('screen-end')
@@ -426,7 +872,50 @@ class CanvasManager {
     setTimeout(() => {
       // Build session result
       const sessionResult = this.buildSessionResult(email);
+
+      // Generate structured ASCII/Text email report of full results
+      const emailReport = `
+============================================================
+ðŸŒ± MOBUS OOGST RAPPORT: ${sessionResult.sessionTitle.toUpperCase()}
+============================================================
+Verzonden naar: ${email}
+Datum:          ${new Date().toLocaleDateString('nl-NL')}
+------------------------------------------------------------
+STATISTIEKEN SUMMARY:
+- Totaal aantal ideeÃ«n: ${sessionResult.totalIdeas}
+- Gevormde kluiten:     ${sessionResult.groups.length}
+- Losse zaden:          ${sessionResult.looseIdeas.length}
+- Wortelverbindingen:  ${this.createdConnections.length}
+- Gebruikte voeding:    ${sessionResult.usedNudges.length}
+------------------------------------------------------------
+KERNINZICHT:
+${sessionResult.conclusion}
+------------------------------------------------------------
+VOLLEDIGE OOGST DETAILS:
+
+${sessionResult.groups.length === 0 ? 'â–  Geen kluiten gevormd.' : sessionResult.groups.map((g, idx) => `
+â–  KLUIT ${idx + 1}: "${g.title}"
+  Aantal zaden: ${g.children.length}
+  Zaden:
+  ${g.children.map(c => `  â””â”€ "${c}"`).join('\n')}`).join('\n')}
+
+â–  LOSSE ZADEN (VRIJ GEZAAID):
+${sessionResult.looseIdeas.length === 0 ? 'Geen losse zaden.' : sessionResult.looseIdeas.map(i => `  â€¢ "${i}"`).join('\n')}
+
+------------------------------------------------------------
+WORTELVERBINDINGEN & INTERACTIES:
+${this.createdConnections.length === 0 ? 'Geen wortelverbindingen gelegd.' : this.createdConnections.map((c, idx) => `  ${idx + 1}. [${c.type.toUpperCase()}] "${c.source}" â”€â”€> "${c.target}"`).join('\n')}
+
+------------------------------------------------------------
+SUGGESTIES VAN MOBUS (AI VOEDING):
+- Gebruikt (${sessionResult.usedNudges.length}):
+${sessionResult.usedNudges.length === 0 ? '  (Geen)' : sessionResult.usedNudges.map(n => `  âœ“ "${n}"`).join('\n')}
+- Overgeslagen (${sessionResult.skippedNudges.length}):
+${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedNudges.map(n => `  âœ— "${n}"`).join('\n')}
+============================================================
+`;
       console.log('Session result:', sessionResult);
+      console.log(emailReport);
 
       // Show success
       success.textContent = `Resultaten verzonden naar ${email}`;
@@ -455,13 +944,14 @@ class CanvasManager {
     const totalIdeasCount = soloIdeas.length + groups.reduce((acc, g) => acc + g.childTokensData.length, 0);
 
     const sessionTitleInput = document.getElementById('summary-session-title');
-    const sessionTitle = sessionTitleInput ? sessionTitleInput.value : 'Creatieve Groeisessie';
+    const sessionTitle = sessionTitleInput ? sessionTitleInput.value : 'Wachten als creatieve pauze';
 
-    let conclusion = "De groeisessie bleef vooral gericht op het vrij zaaien en ordenen.";
+    // Generate smart summary conclusion based on statistics
+    let conclusion = "De groeisessie leverde vooral losse zaden op. Een vervolgstap kan zijn om wortelverbindingen te maken, ze te laten botsen of te groeperen tot kluiten.";
     if (this.usedNudges.length >= 3) {
-      conclusion = "MOBUS heeft geholpen om de zaden met extra voeding te verrijken.";
+      conclusion = "MOBUS voegde suggesties toe om de zaden vanuit meerdere perspectieven te laten groeien.";
     } else if (this.createdConnections.length > 0 || groups.length > 0) {
-      conclusion = "Deze groeisessie bracht vooral wortelverbindingen tussen zaden naar voren.";
+      conclusion = "De groeisessie bracht vooral wortelverbindingen binnen de gevormde kluiten naar voren.";
     }
 
     return {
@@ -484,175 +974,260 @@ class CanvasManager {
     const soloIdeas = this.tokens.filter(t => t.type !== 'group' && !t.isChild);
     const totalIdeasCount = soloIdeas.length + groups.reduce((acc, g) => acc + g.childTokensData.length, 0);
     
-    // Compact stats row
-    const statsRow = document.getElementById('summary-stats-row');
-    if (statsRow) {
-      statsRow.innerHTML = `Geplante ideeën: <strong>${totalIdeasCount}</strong> · Kluiten gevormd: <strong>${groups.length}</strong> · Losse zaden: <strong>${soloIdeas.length}</strong> · Voeding gebruikt: <strong>${this.usedNudges.length}</strong>`;
-    }
+    // Set Stats numbers
+    document.getElementById('stat-ideas-count').textContent = totalIdeasCount;
+    document.getElementById('stat-groups-count').textContent = groups.length;
+    document.getElementById('stat-connections-count').textContent = this.createdConnections.length;
+    document.getElementById('stat-nudges-count').textContent = this.usedNudges.length;
 
-    // Reset session title input
+    // Reset session title hidden input
     const dateStr = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-    document.getElementById('summary-session-title').value = `Creatieve Groeisessie - ${dateStr}`;
+    document.getElementById('summary-session-title').value = `Wachten als creatieve pauze - ${dateStr}`;
 
-    // Generate conclusion
-    let conclusion;
-    if (this.usedNudges.length > 0) {
-      conclusion = "MOBUS voegde voeding toe om de zaden vanuit meerdere perspectieven te laten groeien.";
-    } else if (groups.length > 0) {
-      conclusion = "De groeisessie bracht vooral wortelverbindingen binnen de gevormde kluiten naar voren.";
-    } else {
-      conclusion = "De groeisessie leverde vooral losse zaden op. Een vervolgstap kan zijn om wortelverbindingen te maken, ze te laten botsen of te groeperen tot kluiten.";
-    }
-    const conclusionEl = document.getElementById('summary-conclusion');
-    if (conclusionEl) {
-      conclusionEl.textContent = conclusion;
-    }
-
-    // Populate nudge details
-    const usedContainer = document.getElementById('summary-used-nudges');
-    if (usedContainer) {
-      usedContainer.innerHTML = '';
-      if (this.usedNudges.length === 0) {
-        usedContainer.innerHTML = '<span class="summary-empty-nudge">De sessie is vooral vrij verlopen zonder hulp van MOBUS.</span>';
-      } else {
-        this.usedNudges.forEach(n => {
-          const pill = document.createElement('span');
-          pill.className = 'nudge-summary-tag used';
-          pill.textContent = n;
-          usedContainer.appendChild(pill);
-        });
-      }
-    }
-
-    const skippedContainer = document.getElementById('summary-skipped-nudges');
-    if (skippedContainer) {
-      skippedContainer.innerHTML = '';
-      if (this.skippedNudges.length === 0) {
-        skippedContainer.innerHTML = '<span class="summary-empty-nudge">Geen nudges overgeslagen.</span>';
-      } else {
-        this.skippedNudges.forEach(n => {
-          const pill = document.createElement('span');
-          pill.className = 'nudge-summary-tag skipped';
-          pill.textContent = n;
-          skippedContainer.appendChild(pill);
-        });
-      }
-    }
-
-    // Populate right panel — structured into groups, ideas, interactions
-    const listContainer = document.getElementById('summary-groups-list');
-    listContainer.innerHTML = '';
-
-    // Section: Gevormde kluiten
-    const groupSection = document.createElement('div');
-    groupSection.className = 'summary-output-section';
-    const groupLabel = document.createElement('label');
-    groupLabel.className = 'summary-label';
-    groupLabel.textContent = 'Gevormde kluiten';
-    groupSection.appendChild(groupLabel);
-
+    // Highlight 1: Sterkste kluit
+    const strongestClusterEl = document.getElementById('highlight-strongest-cluster');
+    const strongestSubEl = document.getElementById('highlight-strongest-sub');
     if (groups.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'summary-output-empty';
-      empty.textContent = 'Nog geen kluiten gevormd.';
-      groupSection.appendChild(empty);
+      strongestClusterEl.textContent = 'Geen kluiten';
+      strongestSubEl.textContent = 'Probeer zaden te groeperen';
     } else {
-      groups.forEach(g => {
-        const groupEl = document.createElement('div');
-        groupEl.className = 'summary-group-item';
-
-        const header = document.createElement('div');
-        header.className = 'summary-group-header';
-
-        const title = document.createElement('span');
-        title.className = 'summary-group-title';
-        title.textContent = g.title;
-
-        const badge = document.createElement('span');
-        badge.className = 'summary-group-count';
-        badge.textContent = `${g.childTokensData.length} zaden`;
-
-        header.appendChild(title);
-        header.appendChild(badge);
-        groupEl.appendChild(header);
-
-        const childrenContainer = document.createElement('div');
-        childrenContainer.className = 'summary-group-children';
-
-        g.childTokensData.forEach(child => {
-          const tag = document.createElement('span');
-          tag.className = 'summary-child-tag';
-          tag.textContent = child.title;
-          childrenContainer.appendChild(tag);
-        });
-
-        groupEl.appendChild(childrenContainer);
-        groupSection.appendChild(groupEl);
-      });
+      const strongest = groups.reduce((prev, current) => 
+        (prev.childTokensData.length > current.childTokensData.length) ? prev : current
+      );
+      strongestClusterEl.textContent = strongest.title;
+      strongestSubEl.textContent = `${strongest.childTokensData.length} ideeÃ«n`;
     }
-    listContainer.appendChild(groupSection);
-
-    // Section: Losse zaden
-    const ideasSection = document.createElement('div');
-    ideasSection.className = 'summary-output-section';
-    const ideasLabel = document.createElement('label');
-    ideasLabel.className = 'summary-label';
-    ideasLabel.textContent = 'Losse zaden';
-    ideasSection.appendChild(ideasLabel);
-
-    if (soloIdeas.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'summary-output-empty';
-      empty.textContent = 'Alle zaden zijn in een kluit opgenomen.';
-      ideasSection.appendChild(empty);
-    } else {
-      const ideasWrap = document.createElement('div');
-      ideasWrap.style.display = 'flex';
-      ideasWrap.style.flexWrap = 'wrap';
-      ideasWrap.style.gap = '6px';
-      soloIdeas.forEach(idea => {
-        const tag = document.createElement('span');
-        tag.className = 'summary-child-tag';
-        tag.textContent = idea.title;
-        ideasWrap.appendChild(tag);
-      });
-      ideasSection.appendChild(ideasWrap);
+    
+    if (groups.length > 0) {
+      const strongest = groups.reduce((prev, current) =>
+        (prev.childTokensData.length > current.childTokensData.length) ? prev : current
+      );
+      strongestSubEl.textContent = `${strongest.childTokensData.length} ideeën`;
     }
-    listContainer.appendChild(ideasSection);
 
-    // Section: Wortelverbindingen & Interacties
-    const interSection = document.createElement('div');
-    interSection.className = 'summary-output-section';
-    const interLabel = document.createElement('label');
-    interLabel.className = 'summary-label';
-    interLabel.textContent = 'Wortelverbindingen & Interacties';
-    interSection.appendChild(interLabel);
+    // Highlight 2: Meest actieve groeipad (Connected component analysis)
+    const activePathEl = document.getElementById('highlight-active-path');
+    const activeSubEl = document.getElementById('highlight-active-sub');
 
-    if (this.createdConnections.length === 0) {
-      const empty = document.createElement('div');
-      empty.className = 'summary-output-empty';
-      empty.textContent = 'Er zijn nog geen zaden actief gecombineerd.';
-      interSection.appendChild(empty);
-    } else {
-      this.createdConnections.forEach(c => {
-        const item = document.createElement('div');
-        item.className = 'connection-summary-item';
-        
-        let text = '';
-        if (c.type === 'merge') {
-          text = `Kluit gevormd van "${c.source}" en "${c.target}"`;
-        } else if (c.type === 'add-to-group') {
-          text = `"${c.source}" toegevoegd aan kluit "${c.target}"`;
-        } else if (c.type === 'botsen') {
-          text = `Zaden gebotst: "${c.source}" en "${c.target}"`;
-        } else {
-          text = `Verbinding: "${c.source}" & "${c.target}"`;
+    // Build adjacency list for connected components graph
+    const adj = {};
+    const allNodes = new Set();
+    this.tokens.forEach(t => {
+      if (t.type === 'group') {
+        allNodes.add(t.title);
+      } else if (t.type !== 'group' && !t.isChild) {
+        allNodes.add(t.title);
+      }
+    });
+    this.createdConnections.forEach(c => {
+      allNodes.add(c.source);
+      allNodes.add(c.target);
+      if (!adj[c.source]) adj[c.source] = [];
+      if (!adj[c.target]) adj[c.target] = [];
+      adj[c.source].push(c.target);
+      adj[c.target].push(c.source);
+    });
+
+    const visited = new Set();
+    const components = [];
+    allNodes.forEach(node => {
+      if (!visited.has(node)) {
+        const compNodes = [];
+        const queue = [node];
+        visited.add(node);
+        while (queue.length > 0) {
+          const curr = queue.shift();
+          compNodes.push(curr);
+          const neighbors = adj[curr] || [];
+          neighbors.forEach(nbr => {
+            if (!visited.has(nbr)) {
+              visited.add(nbr);
+              queue.push(nbr);
+            }
+          });
         }
-        item.textContent = text;
-        interSection.appendChild(item);
+        // Count connections in this component
+        let compEdges = 0;
+        this.createdConnections.forEach(c => {
+          if (compNodes.includes(c.source) && compNodes.includes(c.target)) {
+            compEdges++;
+          }
+        });
+        components.push({ nodes: compNodes, edges: compEdges });
+      }
+    });
+
+    const componentsWithEdges = components.filter(c => c.edges > 0).sort((a, b) => b.edges - a.edges);
+    if (componentsWithEdges.length === 0) {
+      activePathEl.textContent = 'Geen groeipad';
+      activeSubEl.textContent = 'Verbind meer ideeÃ«n';
+    } else {
+      const topComp = componentsWithEdges[0];
+      const pathIndex = components.indexOf(topComp) + 1;
+      activePathEl.textContent = `Pad ${pathIndex}`;
+      activeSubEl.textContent = `${topComp.edges} verbindingen`;
+    }
+    
+    if (componentsWithEdges.length === 0) {
+      activeSubEl.textContent = 'Verbind meer ideeën';
+    }
+
+    // Highlight 3: Kerninzicht (Dynamic feedback based on session style)
+    const insightEl = document.getElementById('highlight-insight');
+    const insightSubEl = document.getElementById('highlight-insight-sub');
+    if (this.usedNudges.length >= 3) {
+      insightEl.textContent = "Verrijkte Verkenning";
+      insightSubEl.textContent = "Externe voeding hielp zaden vanuit diverse hoeken te groeien.";
+    } else if (groups.length >= 2 && this.createdConnections.length >= 5) {
+      insightEl.textContent = "Sterke Samenhang";
+      insightSubEl.textContent = "Hoge focus op samenhang en het smeden van thematische kluiten.";
+    } else if (groups.length === 0) {
+      insightEl.textContent = "Vrij Gezaaid";
+      insightSubEl.textContent = "Veel losse zaden geplant; focus lag op brede ideegeneratie.";
+    } else {
+      insightEl.textContent = "Gefaseerde Groei";
+      insightSubEl.textContent = "Mooie balans tussen zaaien van zaden en smeden van kluiten.";
+    }
+
+    // Render SVG infographic network
+    this.renderInfographicSVG();
+  }
+
+  renderInfographicSVG() {
+    const svg = document.getElementById('infographic-svg');
+    if (!svg) return;
+    svg.innerHTML = ''; // Clear existing contents
+
+    const groups = this.tokens.filter(t => t.type === 'group');
+    const soloIdeas = this.tokens.filter(t => t.type !== 'group' && !t.isChild);
+
+    // Build node coordinates lookup
+    const nodeCoords = {};
+
+    // 1. Arrange groups in the center area
+    if (groups.length === 1) {
+      nodeCoords[groups[0].title] = { x: 300, y: 150, type: 'group', data: groups[0] };
+    } else if (groups.length > 1) {
+      groups.forEach((g, idx) => {
+        const angle = (idx / groups.length) * Math.PI * 2;
+        const rx = 110;
+        const ry = 55;
+        const x = 300 + Math.cos(angle) * rx;
+        const y = 150 + Math.sin(angle) * ry;
+        nodeCoords[g.title] = { x, y, type: 'group', data: g };
       });
     }
-    listContainer.appendChild(interSection);
+
+    // 2. Arrange solo ideas floating on left and right peripheries
+    soloIdeas.forEach((s, idx) => {
+      const isLeft = idx % 2 === 0;
+      const xMin = isLeft ? 50 : 450;
+      const xMax = isLeft ? 160 : 550;
+      
+      const x = xMin + (Math.abs(Math.sin(idx)) * (xMax - xMin));
+      // Spread vertically
+      const y = 40 + (idx / Math.max(1, soloIdeas.length - 1)) * 200 + (Math.cos(idx) * 12);
+      nodeCoords[s.title] = { x, y, type: 'solo', data: s };
+    });
+
+    // 3. Draw connections (curved roots/vines)
+    const drawnEdges = new Set();
+    this.createdConnections.forEach(c => {
+      const edgeKey = [c.source, c.target].sort().join('-');
+      if (drawnEdges.has(edgeKey)) return;
+      drawnEdges.add(edgeKey);
+
+      const p1 = nodeCoords[c.source];
+      const p2 = nodeCoords[c.target];
+
+      if (p1 && p2) {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const midX = (p1.x + p2.x) / 2;
+        // Curve offset: curve roots downwards, vines upwards
+        const curveOffset = c.type === 'merge' || c.type === 'add-to-group' ? 25 : -20;
+        const midY = (p1.y + p2.y) / 2 + curveOffset;
+
+        path.setAttribute('d', `M ${p1.x} ${p1.y} Q ${midX} ${midY} ${p2.x} ${p2.y}`);
+        path.setAttribute('class', 'svg-edge');
+        svg.appendChild(path);
+      }
+    });
+
+    // 4. Draw group nodes (clusters of green overlapping circles)
+    groups.forEach(g => {
+      const coord = nodeCoords[g.title];
+      if (!coord) return;
+
+      const { x, y } = coord;
+      const gEl = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+      const numCircles = 6;
+      // Size proportional to the amount of ideas in the group
+      const baseRadius = 8 + Math.min(10, g.childTokensData.length * 0.8);
+
+      for (let i = 0; i < numCircles; i++) {
+        const angle = (i / numCircles) * Math.PI * 2;
+        const offset = baseRadius * 0.45;
+        const cx = x + Math.cos(angle) * offset;
+        const cy = y + Math.sin(angle) * offset;
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute('cx', cx);
+        circle.setAttribute('cy', cy);
+        circle.setAttribute('r', baseRadius);
+        
+        // Alternate colors between primary green (#4c5a2a) and sage green (#9a9f55)
+        const isPrimary = i % 2 === 0;
+        circle.setAttribute('fill', isPrimary ? 'rgba(76, 90, 42, 0.8)' : 'rgba(154, 159, 85, 0.8)');
+        circle.setAttribute('stroke', '#fffdf7');
+        circle.setAttribute('stroke-width', '1');
+        gEl.appendChild(circle);
+      }
+
+      // Add text label
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute('x', x);
+      text.setAttribute('y', y + baseRadius * 1.6 + 4);
+      text.setAttribute('class', 'svg-node-text');
+      
+      let titleText = g.title;
+      if (titleText.length > 15) titleText = titleText.substring(0, 13) + '...';
+      text.textContent = titleText;
+      gEl.appendChild(text);
+
+      svg.appendChild(gEl);
+    });
+
+    // 5. Draw solo nodes (small dots representing loose ideas)
+    soloIdeas.forEach(s => {
+      const coord = nodeCoords[s.title];
+      if (!coord) return;
+
+      const { x, y } = coord;
+      const gEl = document.createElementNS("http://www.w3.org/2000/svg", "g");
+
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', '5');
+      circle.setAttribute('fill', 'rgba(154, 159, 85, 0.9)'); // sage green
+      circle.setAttribute('stroke', '#fffdf7');
+      circle.setAttribute('stroke-width', '1');
+      gEl.appendChild(circle);
+
+      // Add text label
+      const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      text.setAttribute('x', x);
+      text.setAttribute('y', y - 8);
+      text.setAttribute('class', 'svg-node-text');
+
+      let titleText = s.title;
+      if (titleText.length > 12) titleText = titleText.substring(0, 10) + '...';
+      text.textContent = titleText;
+      gEl.appendChild(text);
+
+      svg.appendChild(gEl);
+    });
   }
 
   resetSession() {
@@ -697,6 +1272,9 @@ class CanvasManager {
     if (toggleSound) {
       toggleSound.checked = true;
     }
+    this.sessionGoal = 'Creatieve groeisessie';
+    this.participantCount = 3;
+    this.syncSessionSetupForm();
     
     // Broadcast reset event to the separate wall screen
     if (this.broadcastChannel) {
@@ -729,7 +1307,7 @@ class CanvasManager {
     
     // Get session title from input
     const sessionTitleInput = document.getElementById('summary-session-title');
-    const sessionTitle = sessionTitleInput ? sessionTitleInput.value : 'Creatieve Groeisessie';
+    const sessionTitle = sessionTitleInput ? sessionTitleInput.value : 'Wachten als creatieve pauze';
     
     const isInteracting = this.activeDragCount > 0 || this.tokens.some(t => t.editing);
     
@@ -755,7 +1333,8 @@ class CanvasManager {
     const w = window.innerWidth;
     const h = window.innerHeight;
     
-    // Create the welcome overlay
+    this.updateSessionTitle();
+
     const overlay = document.createElement('div');
     overlay.className = 'empty-state-overlay';
     overlay.innerHTML = `
@@ -766,7 +1345,6 @@ class CanvasManager {
     this.emptyStateOverlay = overlay;
     this.emptyStateVisible = true;
     
-    // Spawn two example tokens – both rotation 0 so they're readable from the main direction
     const id1 = this.tokenIdCounter++;
     const token1 = new Token(id1, w * 0.42, h * 0.55, 0, "Dubbel tik om mij te veranderen", (t, type) => this.handleTokenStateChange(t, type));
     token1.applyBoundaries();
@@ -781,7 +1359,6 @@ class CanvasManager {
     this.tokens.push(token2);
     this.exampleTokenIds.add(id2);
   }
-  
   dismissEmptyState() {
     if (!this.emptyStateVisible) return;
     this.emptyStateVisible = false;
@@ -972,6 +1549,9 @@ class CanvasManager {
   async mergeTokensToGroup(tokenA, tokenB) {
     this.hideAISuggestion(true);
     this.tokens = this.tokens.filter(t => t.id !== tokenA.id && t.id !== tokenB.id);
+    if (this.soundEffectsEnabled) {
+      this.sounds.playConnect();
+    }
     
     const avgX = (tokenA.x + tokenB.x) / 2;
     const avgY = (tokenA.y + tokenB.y) / 2;
@@ -1037,6 +1617,9 @@ class CanvasManager {
   addTokenToGroup(token, group) {
     this.hideAISuggestion(true);
     this.tokens = this.tokens.filter(t => t.id !== token.id);
+    if (this.soundEffectsEnabled) {
+      this.sounds.playConnect();
+    }
     
     if (token.domElement) {
       token.domElement.style.transition = 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
@@ -1120,6 +1703,9 @@ class CanvasManager {
         }
         this.lastActivityTime = Date.now();
         this.updateAISuggestions();
+        if (this.soundEffectsEnabled) {
+          this.sounds.playEdit();
+        }
       },
       () => {
         // Cancel: restore original text and visibility
@@ -1283,7 +1869,7 @@ class CanvasManager {
     
     const { type, tA, tB } = this.activeNudge;
     
-    this.showNudgeFeedback("Voeding toegepast");
+    this.showNudgeFeedback("Suggestie toegepast");
     this.nudgesClickedCount++;
     this.usedNudges.push(type);
     
@@ -1431,23 +2017,35 @@ class CanvasManager {
   }
 
   triggerStilte() {
-    const oldHud = document.querySelector('.silence-timer-hud');
-    if (oldHud) oldHud.remove();
+    this.hideAISuggestion(true);
+    document.getElementById('canvas').classList.add('silence-active');
     
-    const hud = document.createElement('div');
-    hud.className = 'silence-timer-hud';
-    hud.innerHTML = `
-      <svg class="silence-clock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-      <span class="silence-countdown">30</span>
-      <span class="silence-copy">Alleen ordenen. Niet typen.</span>
+    const oldOverlay = document.querySelector('.silence-overlay-container');
+    if (oldOverlay) oldOverlay.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'silence-overlay-container';
+    overlay.innerHTML = `
+      <div class="silence-card">
+        <div class="silence-progress-ring-container">
+          <svg class="silence-progress-svg" viewBox="0 0 100 100">
+            <circle class="silence-progress-bg" cx="50" cy="50" r="42"></circle>
+            <circle class="silence-progress-bar" cx="50" cy="50" r="42"></circle>
+          </svg>
+          <div class="silence-countdown-text">20</div>
+        </div>
+        <h2 class="silence-title">Even stilte en focus</h2>
+        <div class="silence-microcopy">
+          <p>Neem 20 seconden om te kijken.</p>
+          <p>Welke patronen vallen op?</p>
+        </div>
+        <button class="silence-skip-btn">Verder</button>
+      </div>
     `;
-    document.getElementById('canvas').appendChild(hud);
+    document.getElementById('canvas').appendChild(overlay);
     
     requestAnimationFrame(() => {
-      hud.classList.add('visible');
+      overlay.classList.add('visible');
     });
     
     document.querySelectorAll('.edge-button').forEach(btn => {
@@ -1456,28 +2054,58 @@ class CanvasManager {
     
     this.silenceModeActive = true;
     
-    let timeLeft = 30;
-    const countdownEl = hud.querySelector('.silence-countdown');
+    let timeLeft = 20;
+    const countdownEl = overlay.querySelector('.silence-countdown-text');
+    const progressBar = overlay.querySelector('.silence-progress-bar');
+    const skipBtn = overlay.querySelector('.silence-skip-btn');
     
-    this.silenceTimer = setInterval(() => {
-      timeLeft--;
+    const circumference = 2 * Math.PI * 42; // ~263.89
+    progressBar.style.strokeDasharray = circumference;
+    progressBar.style.strokeDashoffset = 0;
+    
+    const updateProgress = () => {
       if (countdownEl) {
         countdownEl.innerText = timeLeft.toString();
       }
-      
-      if (timeLeft <= 0) {
+      const offset = circumference - (timeLeft / 20) * circumference;
+      progressBar.style.strokeDashoffset = offset;
+    };
+    
+    updateProgress();
+    
+    const endSilence = () => {
+      if (this.silenceTimer) {
         clearInterval(this.silenceTimer);
         this.silenceTimer = null;
-        this.silenceModeActive = false;
-        
-        document.querySelectorAll('.edge-button').forEach(btn => {
-          btn.classList.remove('muted');
-        });
-        
-        hud.classList.remove('visible');
-        setTimeout(() => hud.remove(), 400);
-        
-        this.showNudgeFeedback("Stilte voorbij");
+      }
+      this.silenceModeActive = false;
+      
+      document.getElementById('canvas').classList.remove('silence-active');
+      document.querySelectorAll('.edge-button').forEach(btn => {
+        btn.classList.remove('muted');
+      });
+      
+      overlay.classList.remove('visible');
+      setTimeout(() => {
+        overlay.remove();
+      }, 600);
+      
+      this.showNudgeFeedback("Stilte voorbij");
+      this.updateAISuggestions();
+    };
+    
+    skipBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      endSilence();
+    });
+    
+    this.silenceTimer = setInterval(() => {
+      timeLeft--;
+      updateProgress();
+      
+      if (timeLeft <= 0) {
+        endSilence();
       }
     }, 1000);
   }
@@ -1518,7 +2146,7 @@ class CanvasManager {
           btn.classList.add('bin-mode');
           icon.innerHTML = BIN_ICON;
           if (label) label.textContent = BIN_LABEL;
-          btn.setAttribute('aria-label', 'Verwijder idee');
+          btn.setAttribute('aria-label', 'Snoei idee');
         }
       } else {
         if (btn.classList.contains('bin-mode')) {
@@ -1593,6 +2221,9 @@ class CanvasManager {
   deleteToken(token) {
     this.exampleTokenIds.delete(token.id);
     const el = token.domElement;
+    if (this.soundEffectsEnabled) {
+      this.sounds.playSnoei();
+    }
     if (el) {
       el.style.transition = 'all 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045)';
       // Shrink and rotate token while deleting for a organic feel
@@ -1774,24 +2405,42 @@ class CanvasManager {
       
       document.getElementById('canvas').appendChild(svg);
     }
+
+    const silenceBtn = document.getElementById('silence-nudge-btn');
+    if (silenceBtn) {
+      silenceBtn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (this.activeNudge && this.activeNudge.type === 'stilte') {
+          this.expandDot(this.activeNudge.tA, null, window.innerWidth / 2, 110);
+        }
+      });
+    }
   }
 
   getNudgeText(type, tA, tB) {
+    if (type === 'verbinden') {
+      return 'Horen deze ideeën bij elkaar?';
+    }
+    if (type === 'botsen') {
+      return 'Botsen deze ideeën?';
+    }
+
     switch (type) {
       case 'verbinden':
-        return 'Mogelijke verbinding gevonden';
+        return 'Horen deze ideeÃ«n bij elkaar?';
       case 'botsen':
-        return 'Wat schuurt hier?';
+        return 'Botsen deze ideeÃ«n?';
       case 'omkeren':
-        return 'Draai deze aanname eens om';
+        return 'Draai deze aanname om?';
       case 'vergroten':
         return 'Wat als dit idee 10x sterker was?';
       case 'verplaatsen':
-        return 'Wat verandert er hier?';
+        return 'Verplaatsen naar andere context?';
       case 'stilte':
-        return 'Alleen ordenen. Niet typen.';
+        return 'Tijd voor een stiltemoment?';
       default:
-        return 'Voeding';
+        return 'Suggestie toepassen?';
     }
   }
 
@@ -1812,9 +2461,7 @@ class CanvasManager {
     
     // Check if we need to initialize activeNudge
     if (!this.activeNudge || (this.activeNudge.tA !== tA || this.activeNudge.tB !== tB)) {
-      const text = type === 'verbinden' 
-        ? getThemeExplanation(tA.title, tB ? tB.title : "")
-        : this.getNudgeText(type, tA, tB);
+      const text = this.getNudgeText(type, tA, tB);
         
       this.activeNudge = {
         type,
@@ -1838,157 +2485,189 @@ class CanvasManager {
     
     // 1-token nudge positioning vs 2-token nudge positioning
     const isOneTokenNudge = nudgeType === 'omkeren' || nudgeType === 'vergroten' || nudgeType === 'verplaatsen';
+    const isExpanded = dot && dot.classList.contains('expanded');
     
     let dotX, dotY;
     let rotation = 0;
     let dist = 0;
     
-    if (isOneTokenNudge || !tB) {
-      // Hide SVG paths for single-token nudges
+    if (nudgeType === 'stilte') {
+      // Show top bar silence button
+      const silenceBtn = document.getElementById('silence-nudge-btn');
+      if (silenceBtn) {
+        silenceBtn.style.display = 'flex';
+        if (isSensing) {
+          silenceBtn.classList.add('sensing');
+        } else {
+          silenceBtn.classList.remove('sensing');
+        }
+      }
+      
+      if (isExpanded) {
+        dotX = window.innerWidth / 2;
+        dotY = 110;
+        rotation = 0;
+      } else {
+        if (dot) dot.style.display = 'none';
+        dotX = window.innerWidth / 2;
+        dotY = -200; // place offscreen
+      }
       if (path) path.style.opacity = '0';
       if (hoverPath) hoverPath.removeAttribute('d');
-      
-      rotation = tA.rotation;
-      const rad = rotation * Math.PI / 180;
-      dotX = tA.x - Math.sin(rad) * 115;
-      dotY = tA.y + Math.cos(rad) * 115;
     } else {
-      // 2-token/Timer nudge: position at midpoint and show connection line
-      const dx = tB.x - tA.x;
-      const dy = tB.y - tA.y;
-      dist = Math.hypot(dx, dy);
-      if (dist === 0) return;
-      
-      const midX = (tA.x + tB.x) / 2;
-      const midY = (tA.y + tB.y) / 2;
-      
-      const nx = -dy / dist;
-      const ny = dx / dist;
-      
-      const screenMidX = window.innerWidth / 2;
-      const screenMidY = window.innerHeight / 2;
-      const toCenterX = screenMidX - midX;
-      const toCenterY = screenMidY - midY;
-      
-      const dotProduct = nx * toCenterX + ny * toCenterY;
-      const directionMultiplier = dotProduct >= 0 ? 1 : -1;
-      const finalNx = nx * directionMultiplier;
-      const finalNy = ny * directionMultiplier;
-      
-      const isDraggingEither = tA.isDragging || tB.isDragging;
-      const isClose = dist < 130;
-      const matchesContent = checkThemeMatch(tA.title, tB.title);
-      const softThreshold = matchesContent ? 350 : 260;
-      const breakThreshold = matchesContent ? 600 : 480;
-      
-      // Snapping threshold checks
-      if (dist > breakThreshold) {
-        this.isSnapping = true;
-        if (hoverPath) hoverPath.onpointerdown = null;
-        if (dot) {
-          dot.style.pointerEvents = 'none';
-          dot.classList.remove('expanded');
-        }
-        if (path) path.classList.add('ai-suggestion-snapping');
-        if (dot) dot.classList.add('ai-dot-snapping');
+      // Hide top bar silence button if not active
+      const silenceBtn = document.getElementById('silence-nudge-btn');
+      if (silenceBtn) silenceBtn.style.display = 'none';
+
+      if (isOneTokenNudge || !tB) {
+        // Hide SVG paths for single-token nudges
+        if (path) path.style.opacity = '0';
+        if (hoverPath) hoverPath.removeAttribute('d');
         
-        this.dismissedConnections.push({
-          sourceTokenId: tA.id,
-          targetTokenId: tB.id,
-          sourceTitle: tA.title,
-          targetTitle: tB.title,
-          status: "dismissed",
-          dismissedAt: Date.now()
-        });
-        
-        setTimeout(() => {
-          this.hideAISuggestion(true);
-          this.isSnapping = false;
-          this.activeNudge = null;
-          this.updateAISuggestions();
-        }, 400);
-        
-        return;
-      }
-      
-      const progress = dist > softThreshold ? Math.max(0, Math.min(1, (dist - softThreshold) / (breakThreshold - softThreshold))) : 0;
-      const curveOffset = Math.min(dist * 0.15, 60);
-      const finalCurveOffset = Math.max(2, curveOffset * (1 - progress * 0.95));
-      const cpX = midX - finalNx * finalCurveOffset;
-      const cpY = midY - finalNy * finalCurveOffset;
-      
-      let finalCpX = cpX;
-      let finalCpY = cpY;
-      const jitterAmt = progress * progress * 8;
-      if (progress > 0 && isDraggingEither) {
-        finalCpX += (Math.random() - 0.5) * jitterAmt;
-        finalCpY += (Math.random() - 0.5) * jitterAmt;
-      }
-      
-      dotX = 0.25 * tA.x + 0.5 * finalCpX + 0.25 * tB.x;
-      dotY = 0.25 * tA.y + 0.5 * finalCpY + 0.25 * tB.y;
-      
-      if (progress > 0 && isDraggingEither) {
-        dotX += (Math.random() - 0.5) * (jitterAmt * 0.6);
-        dotY += (Math.random() - 0.5) * (jitterAmt * 0.6);
-      }
-      
-      const pathD = `M ${tA.x} ${tA.y} Q ${finalCpX} ${finalCpY} ${tB.x} ${tB.y}`;
-      if (path) {
-        path.setAttribute('d', pathD);
-        path.style.opacity = '0.65';
-        if (dot && dot.classList.contains('expanded')) {
-          path.classList.add('ai-suggestion-glow-path');
-          path.style.strokeWidth = '6px';
-          path.style.strokeDasharray = '10 6';
-          path.style.opacity = '1.0';
-          path.style.stroke = '#10b981';
-        } else if (isClose && isDraggingEither) {
-          path.classList.add('ai-suggestion-glow-path');
-          path.style.strokeWidth = '6.5px';
-          path.style.strokeDasharray = '16 6';
-          path.style.opacity = '1.0';
-          path.style.stroke = '';
+        rotation = tA.rotation;
+        if (nudgeType === 'omkeren' || nudgeType === 'vergroten') {
+          // Position directly on the token
+          dotX = tA.x;
+          dotY = tA.y;
         } else {
-          path.classList.remove('ai-suggestion-glow-path');
-          if (progress > 0) {
-            const strokeW = Math.max(1.0, 5.5 * (1 - progress * 0.82));
-            const dashSize = Math.max(2.0, 12 * (1 - progress * 0.85));
-            const gapSize = 8 + progress * 24;
-            const opacityVal = 0.65 - progress * 0.4;
-            
-            const r = Math.round(16 + progress * 140);
-            const g = Math.round(185 - progress * 60);
-            const b = Math.round(129 - progress * 30);
-            
-            path.style.strokeWidth = `${strokeW}px`;
-            path.style.strokeDasharray = `${dashSize} ${gapSize}`;
-            path.style.opacity = opacityVal.toString();
-            path.style.stroke = `rgb(${r}, ${g}, ${b})`;
-          } else {
+          // verplaatsen (compass rose) - offset from token
+          const rad = rotation * Math.PI / 180;
+          dotX = tA.x - Math.sin(rad) * 115;
+          dotY = tA.y + Math.cos(rad) * 115;
+        }
+      } else {
+        // 2-token/Timer nudge: position at midpoint and show connection line
+        const dx = tB.x - tA.x;
+        const dy = tB.y - tA.y;
+        dist = Math.hypot(dx, dy);
+        if (dist === 0) return;
+        
+        const midX = (tA.x + tB.x) / 2;
+        const midY = (tA.y + tB.y) / 2;
+        
+        const nx = -dy / dist;
+        const ny = dx / dist;
+        
+        const screenMidX = window.innerWidth / 2;
+        const screenMidY = window.innerHeight / 2;
+        const toCenterX = screenMidX - midX;
+        const toCenterY = screenMidY - midY;
+        
+        const dotProduct = nx * toCenterX + ny * toCenterY;
+        const directionMultiplier = dotProduct >= 0 ? 1 : -1;
+        const finalNx = nx * directionMultiplier;
+        const finalNy = ny * directionMultiplier;
+        
+        const isDraggingEither = tA.isDragging || tB.isDragging;
+        const isClose = dist < 130;
+        const matchesContent = checkThemeMatch(tA.title, tB.title);
+        const softThreshold = matchesContent ? 350 : 260;
+        const breakThreshold = matchesContent ? 600 : 480;
+        
+        // Snapping threshold checks
+        if (dist > breakThreshold) {
+          this.isSnapping = true;
+          if (hoverPath) hoverPath.onpointerdown = null;
+          if (dot) {
+            dot.style.pointerEvents = 'none';
+            dot.classList.remove('expanded');
+          }
+          if (path) path.classList.add('ai-suggestion-snapping');
+          if (dot) dot.classList.add('ai-dot-snapping');
+          
+          this.dismissedConnections.push({
+            sourceTokenId: tA.id,
+            targetTokenId: tB.id,
+            sourceTitle: tA.title,
+            targetTitle: tB.title,
+            status: "dismissed",
+            dismissedAt: Date.now()
+          });
+          
+          setTimeout(() => {
+            this.hideAISuggestion(true);
+            this.isSnapping = false;
+            this.activeNudge = null;
+            this.updateAISuggestions();
+          }, 400);
+          
+          return;
+        }
+        
+        const progress = dist > softThreshold ? Math.max(0, Math.min(1, (dist - softThreshold) / (breakThreshold - softThreshold))) : 0;
+        const curveOffset = Math.min(dist * 0.15, 60);
+        const finalCurveOffset = Math.max(2, curveOffset * (1 - progress * 0.95));
+        const cpX = midX - finalNx * finalCurveOffset;
+        const cpY = midY - finalNy * finalCurveOffset;
+        
+        let finalCpX = cpX;
+        let finalCpY = cpY;
+        const jitterAmt = progress * progress * 8;
+        if (progress > 0 && isDraggingEither) {
+          finalCpX += (Math.random() - 0.5) * jitterAmt;
+          finalCpY += (Math.random() - 0.5) * jitterAmt;
+        }
+        
+        dotX = 0.25 * tA.x + 0.5 * finalCpX + 0.25 * tB.x;
+        dotY = 0.25 * tA.y + 0.5 * finalCpY + 0.25 * tB.y;
+        
+        if (progress > 0 && isDraggingEither) {
+          dotX += (Math.random() - 0.5) * (jitterAmt * 0.6);
+          dotY += (Math.random() - 0.5) * (jitterAmt * 0.6);
+        }
+        
+        const pathD = `M ${tA.x} ${tA.y} Q ${finalCpX} ${finalCpY} ${tB.x} ${tB.y}`;
+        if (path) {
+          path.setAttribute('d', pathD);
+          if (dot && dot.classList.contains('expanded')) {
+            path.classList.add('ai-suggestion-glow-path');
             path.style.strokeWidth = '';
             path.style.strokeDasharray = '';
+            path.style.opacity = '';
             path.style.stroke = '';
+          } else if (isClose && isDraggingEither) {
+            path.classList.add('ai-suggestion-glow-path');
+            path.style.strokeWidth = '';
+            path.style.strokeDasharray = '';
+            path.style.opacity = '';
+            path.style.stroke = '';
+          } else {
+            path.classList.remove('ai-suggestion-glow-path');
+            if (progress > 0) {
+              const strokeW = Math.max(1.0, 3.5 * (1 - progress * 0.7));
+              const dashSize = Math.max(2.0, 8 * (1 - progress * 0.7));
+              const gapSize = 6 + progress * 24;
+              const opacityVal = 0.65 - progress * 0.45;
+              
+              path.style.strokeWidth = `${strokeW}px`;
+              path.style.strokeDasharray = `${dashSize} ${gapSize}`;
+              path.style.opacity = opacityVal.toString();
+              path.style.stroke = '';
+            } else {
+              path.style.strokeWidth = '';
+              path.style.strokeDasharray = '';
+              path.style.opacity = '';
+              path.style.stroke = '';
+            }
           }
         }
+        if (hoverPath) {
+          hoverPath.setAttribute('d', pathD);
+          hoverPath.onpointerdown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!dot || !dot.classList.contains('expanded')) {
+              this.expandDot(tA, tB, dotX, dotY);
+            }
+          };
+        }
+        
+        rotation = (tA.isDragging || tA.selected) ? tA.rotation : ((tB && (tB.isDragging || tB.selected)) ? tB.rotation : tA.rotation);
       }
-      if (hoverPath) {
-        hoverPath.setAttribute('d', pathD);
-        hoverPath.onpointerdown = (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (!dot || !dot.classList.contains('expanded')) {
-            this.expandDot(tA, tB, dotX, dotY);
-          }
-        };
-      }
-      
-      rotation = (tA.isDragging || tA.selected) ? tA.rotation : ((tB && (tB.isDragging || tB.selected)) ? tB.rotation : tA.rotation);
     }
     
-    const isExpanded = dot && dot.classList.contains('expanded');
-    
     // Create/update the indicator dot
+    let hintIcon = null;
     if (!dot) {
       dot = document.createElement('div');
       dot.id = 'ai-suggestion-dot';
@@ -1996,21 +2675,21 @@ class CanvasManager {
       dot.style.opacity = '0';
       dot.style.scale = '0.5';
       
-      const qMark = document.createElement('span');
-      qMark.className = 'ai-dot-question-mark';
-      qMark.textContent = '+';
-      dot.appendChild(qMark);
+      hintIcon = document.createElement('div');
+      hintIcon.className = 'ai-dot-hint-icon';
+      dot.appendChild(hintIcon);
       
       const expandedContent = document.createElement('div');
       expandedContent.className = 'ai-dot-expanded-content';
-      
       dot.appendChild(expandedContent);
       
       dot.addEventListener('pointerdown', (e) => {
         e.preventDefault();
         e.stopPropagation();
         if (!dot.classList.contains('sensing') && !dot.classList.contains('expanded')) {
-          this.expandDot(tA, tB, dotX, dotY);
+          const xVal = parseFloat(dot.style.left);
+          const yVal = parseFloat(dot.style.top);
+          this.expandDot(tA, tB, xVal, yVal);
         }
       });
       
@@ -2023,23 +2702,60 @@ class CanvasManager {
     } else {
       dot.style.opacity = '1';
       dot.style.scale = '1';
+      hintIcon = dot.querySelector('.ai-dot-hint-icon');
     }
     
-    // Apply sensing vs normal modes
+    if (nudgeType !== 'stilte') {
+      dot.style.display = 'flex';
+    }
+    
+    // Set class lists dynamically based on type
+    dot.className = 'ai-indicator-dot';
+    dot.classList.add(`nudge-hint-${nudgeType}`);
+    
+    if (isExpanded) {
+      dot.classList.add('expanded');
+    }
     if (isSensing) {
       dot.classList.add('sensing');
-      dot.style.pointerEvents = 'none';
-      const qMark = dot.querySelector('.ai-dot-question-mark');
-      if (qMark) qMark.innerText = "MOBUS ziet voeding…";
-    } else {
-      dot.classList.remove('sensing');
-      if (!isExpanded) {
-        dot.style.pointerEvents = 'auto';
-        const qMark = dot.querySelector('.ai-dot-question-mark');
-        if (qMark) qMark.innerText = "+";
+    }
+    
+    if (hintIcon) {
+      if (isExpanded) {
+        hintIcon.style.display = 'none';
+      } else {
+        hintIcon.style.display = 'flex';
+        // Render nudge-specific SVGs inside hintIcon
+        if (isSensing) {
+          hintIcon.innerHTML = `<span class="sensing-text">MOBUS suggestieâ€¦</span>`;
+        } else {
+          switch (nudgeType) {
+            case 'verbinden':
+              hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="12" r="3"></circle><line x1="9" y1="12" x2="15" y2="12"></line></svg>`;
+              break;
+            case 'botsen':
+              hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h7m0 0l-3-3m3 3l-3 3M20 12h-7m0 0l3-3m-3 3l3 3"/></svg>`;
+              break;
+            case 'omkeren':
+              hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>`;
+              break;
+            case 'vergroten':
+              hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>`;
+              break;
+            case 'verplaatsen':
+              hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>`;
+              break;
+            default:
+              hintIcon.innerHTML = `+`;
+          }
+        }
       }
     }
     
+    if (hintIcon && isSensing && !isExpanded) {
+      hintIcon.innerHTML = `<span class="sensing-text">MOBUS suggestie...</span>`;
+    }
+
     dot.style.left = `${dotX}px`;
     dot.style.top = `${dotY}px`;
     dot.style.rotate = `${rotation}deg`;
@@ -2061,10 +2777,10 @@ class CanvasManager {
         cutout.setAttribute('rx', '19');
         cutout.setAttribute('ry', '19');
       } else {
-        cutout.setAttribute('width', '32');
-        cutout.setAttribute('height', '32');
-        cutout.setAttribute('rx', '16');
-        cutout.setAttribute('ry', '16');
+        cutout.setAttribute('width', nudgeType === 'vergroten' ? '190' : '32');
+        cutout.setAttribute('height', nudgeType === 'vergroten' ? '155' : '32');
+        cutout.setAttribute('rx', nudgeType === 'vergroten' ? '80' : '16');
+        cutout.setAttribute('ry', nudgeType === 'vergroten' ? '70' : '16');
       }
     }
     
@@ -2079,15 +2795,27 @@ class CanvasManager {
     const dot = document.getElementById('ai-suggestion-dot');
     if (!dot || dot.classList.contains('expanded') || dot.classList.contains('sensing')) return;
     
+    const nudgeType = this.activeNudge.type;
+    
+    // Offset card for single token nudges so they don't cover the token center entirely
+    let targetX = dotX;
+    let targetY = dotY;
+    if (nudgeType === 'omkeren' || nudgeType === 'vergroten') {
+      targetY = dotY + 115;
+      if (targetY + 80 > window.innerHeight) {
+        targetY = dotY - 115;
+      }
+    }
+    
     dot.classList.add('expanded');
     dot.style.opacity = '1';
     dot.style.scale = '1';
-    dot.style.left = `${dotX}px`;
-    dot.style.top = `${dotY}px`;
+    dot.style.left = `${targetX}px`;
+    dot.style.top = `${targetY}px`;
     dot.style.animation = 'none';
     
-    const qMark = dot.querySelector('.ai-dot-question-mark');
-    if (qMark) qMark.style.display = 'none';
+    const hintIcon = dot.querySelector('.ai-dot-hint-icon');
+    if (hintIcon) hintIcon.style.display = 'none';
     
     const expandedContent = dot.querySelector('.ai-dot-expanded-content');
     if (expandedContent) {
@@ -2105,24 +2833,24 @@ class CanvasManager {
       
       const btnProbeer = document.createElement('button');
       btnProbeer.className = 'ai-dot-btn probeer';
-      btnProbeer.innerText = 'Voeden';
+      btnProbeer.innerText = 'Probeer';
       btnProbeer.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         e.preventDefault();
         this.applyActiveNudge();
       });
       
-      const btnSlaOver = document.createElement('button');
-      btnSlaOver.className = 'ai-dot-btn sla-over';
-      btnSlaOver.innerText = 'Sla over';
-      btnSlaOver.addEventListener('pointerdown', (e) => {
+      const btnNegeer = document.createElement('button');
+      btnNegeer.className = 'ai-dot-btn sla-over';
+      btnNegeer.innerText = 'Negeer';
+      btnNegeer.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         e.preventDefault();
         this.skipActiveNudge();
       });
       
       btnsContainer.appendChild(btnProbeer);
-      btnsContainer.appendChild(btnSlaOver);
+      btnsContainer.appendChild(btnNegeer);
       expandedContent.appendChild(btnsContainer);
     }
     
@@ -2130,7 +2858,7 @@ class CanvasManager {
     if (cutout) {
       const expandedW = 260;
       const expandedH = dot.offsetHeight || 120;
-      cutout.style.transform = `translate(${dotX}px, ${dotY}px) translate(-50%, -50%)`;
+      cutout.style.transform = `translate(${targetX}px, ${targetY}px) translate(-50%, -50%)`;
       cutout.setAttribute('width', expandedW.toString());
       cutout.setAttribute('height', expandedH.toString());
       cutout.setAttribute('rx', '20');
@@ -2138,7 +2866,7 @@ class CanvasManager {
     }
     
     if (tB) {
-      this.repelTokensFromExpandedDot(tA, tB, dotX, dotY);
+      this.repelTokensFromExpandedDot(tA, tB, targetX, targetY);
     }
   }
 
@@ -2150,8 +2878,8 @@ class CanvasManager {
     dot.style.animation = '';
     dot.style.animationDuration = '';
     
-    const qMark = dot.querySelector('.ai-dot-question-mark');
-    if (qMark) qMark.style.display = 'block';
+    const hintIcon = dot.querySelector('.ai-dot-hint-icon');
+    if (hintIcon) hintIcon.style.display = 'flex';
     
     const expandedContent = dot.querySelector('.ai-dot-expanded-content');
     if (expandedContent) {
@@ -2200,9 +2928,17 @@ class CanvasManager {
     const hoverPath = document.getElementById('ai-suggestion-hover-path');
     const dot = document.getElementById('ai-suggestion-dot');
     
+    // Hide silence nudge button in top bar
+    const silenceBtn = document.getElementById('silence-nudge-btn');
+    if (silenceBtn) {
+      silenceBtn.style.display = 'none';
+      silenceBtn.classList.remove('sensing');
+    }
+
     if (path) {
       path.style.opacity = '0';
       path.classList.remove('ai-suggestion-glow-path');
+      path.classList.remove('ai-suggestion-snapping');
     }
     if (hoverPath) {
       hoverPath.removeAttribute('d');
@@ -2234,6 +2970,11 @@ class CanvasManager {
   }
 
   updateAISuggestions() {
+    if (this.silenceModeActive) {
+      this.hideAISuggestion();
+      return;
+    }
+
     this.updateGrowthVisualization();
 
     if (!this.hasUserAddedIdeas()) {
@@ -2272,7 +3013,10 @@ class CanvasManager {
       }
     }
     
-    // Check 1: One token selected for longer than 3 seconds -> suggest Vergroten
+    // Gather all currently possible suggestion candidates
+    const candidates = [];
+
+    // 1. Check Vergroten candidate: One token selected for longer than 3 seconds
     const selectedToken = ideas.find(t => 
       t.selected && 
       this.tokenSelectedTime[t.id] && 
@@ -2281,11 +3025,10 @@ class CanvasManager {
       !this.ignoredSuggestions.has(t.id.toString())
     );
     if (selectedToken) {
-      this.showAISuggestion(selectedToken, null, 'vergroten');
-      return;
+      candidates.push({ type: 'vergroten', tA: selectedToken, tB: null });
     }
     
-    // Check 2: Tokens close together -> suggest Verbinden
+    // 2. Check Verbinden candidate: Tokens close together
     let closestPair = null;
     let minDistance = Infinity;
     for (let i = 0; i < ideas.length; i++) {
@@ -2304,11 +3047,10 @@ class CanvasManager {
       }
     }
     if (closestPair) {
-      this.showAISuggestion(closestPair.tA, closestPair.tB, 'verbinden');
-      return;
+      candidates.push({ type: 'verbinden', tA: closestPair.tA, tB: closestPair.tB });
     }
     
-    // Check 3: Tokens far apart with different words -> suggest Botsen
+    // 3. Check Botsen candidate: Tokens far apart with different words
     let farPair = null;
     let maxDistance = -1;
     for (let i = 0; i < ideas.length; i++) {
@@ -2329,11 +3071,10 @@ class CanvasManager {
       }
     }
     if (farPair) {
-      this.showAISuggestion(farPair.tA, farPair.tB, 'botsen');
-      return;
+      candidates.push({ type: 'botsen', tA: farPair.tA, tB: farPair.tB });
     }
     
-    // Check 4: One token has a clear statement -> suggest Omkeren
+    // 4. Check Omkeren candidate: One token has a clear statement
     const isStatement = (title) => {
       if (!title) return false;
       const lower = title.toLowerCase().trim();
@@ -2347,62 +3088,65 @@ class CanvasManager {
       isStatement(t.title)
     );
     if (statementToken) {
-      this.showAISuggestion(statementToken, null, 'omkeren');
+      candidates.push({ type: 'omkeren', tA: statementToken, tB: null });
+    }
+    
+    // 5 & 6. Check Verplaatsen and Stilte candidates: Session feels static for 10 seconds
+    if (Date.now() - this.lastActivityTime >= 10000) {
+      // For verplaatsen candidate:
+      const moveToken = ideas.find(t => !t.editing && !this.ignoredSuggestions.has(t.id.toString()));
+      if (moveToken) {
+        candidates.push({ type: 'verplaatsen', tA: moveToken, tB: null });
+      }
+      
+      // For stilte candidate:
+      let bestPair = null;
+      let minP = Infinity;
+      for (let i = 0; i < ideas.length; i++) {
+        for (let j = i + 1; j < ideas.length; j++) {
+          const tA = ideas[i];
+          const tB = ideas[j];
+          if (tA.editing || tB.editing) continue;
+          const pairKey = Math.min(tA.id, tB.id) + '-' + Math.max(tA.id, tB.id);
+          if (this.ignoredSuggestions.has(pairKey)) continue;
+          const dist = Math.hypot(tA.x - tB.x, tA.y - tB.y);
+          if (dist < minP) {
+            minP = dist;
+            bestPair = { tA, tB };
+          }
+        }
+      }
+      if (bestPair) {
+        candidates.push({ type: 'stilte', tA: bestPair.tA, tB: bestPair.tB });
+      } else if (moveToken) {
+        candidates.push({ type: 'stilte', tA: moveToken, tB: null });
+      }
+    }
+    
+    if (candidates.length === 0) {
+      this.hideAISuggestion();
       return;
     }
-    
-    // Check 5: Session feels static for 10 seconds -> suggest Verplaatsen or Stilte
-    if (Date.now() - this.lastActivityTime >= 10000) {
-      let type = 'verplaatsen';
-      const hasUsedVerplaatsen = this.usedNudges.includes('verplaatsen') || this.skippedNudges.includes('verplaatsen');
-      const hasUsedStilte = this.usedNudges.includes('stilte') || this.skippedNudges.includes('stilte');
-      
-      if (hasUsedVerplaatsen && !hasUsedStilte) {
-        type = 'stilte';
-      } else if (!hasUsedVerplaatsen && hasUsedStilte) {
-        type = 'verplaatsen';
-      } else {
-        type = Math.random() < 0.5 ? 'verplaatsen' : 'stilte';
-      }
-      
-      if (type === 'verplaatsen') {
-        const tA = ideas.find(t => !t.editing && !this.ignoredSuggestions.has(t.id.toString()));
-        if (tA) {
-          this.showAISuggestion(tA, null, 'verplaatsen');
-          return;
-        }
-      } else {
-        let bestPair = null;
-        let minP = Infinity;
-        for (let i = 0; i < ideas.length; i++) {
-          for (let j = i + 1; j < ideas.length; j++) {
-            const tA = ideas[i];
-            const tB = ideas[j];
-            if (tA.editing || tB.editing) continue;
-            const pairKey = Math.min(tA.id, tB.id) + '-' + Math.max(tA.id, tB.id);
-            if (this.ignoredSuggestions.has(pairKey)) continue;
-            const dist = Math.hypot(tA.x - tB.x, tA.y - tB.y);
-            if (dist < minP) {
-              minP = dist;
-              bestPair = { tA, tB };
-            }
-          }
-        }
-        if (bestPair) {
-          this.showAISuggestion(bestPair.tA, bestPair.tB, 'stilte');
-          return;
-        } else {
-          const tA = ideas.find(t => !t.editing && !this.ignoredSuggestions.has(t.id.toString()));
-          if (tA) {
-            this.showAISuggestion(tA, null, 'stilte');
-            return;
-          }
-        }
-      }
+
+    // Calculate count of how often each nudge type has been used or skipped
+    const getUsageCount = (type) => {
+      const used = this.usedNudges.filter(t => t === type).length;
+      const skipped = this.skippedNudges.filter(t => t === type).length;
+      return used + skipped;
+    };
+
+    // Shuffle candidates to randomize tie-breakers
+    for (let i = candidates.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
     }
-    
-    // No conditions met, hide suggestion
-    this.hideAISuggestion();
+
+    // Sort candidates so the least-used nudge type is first
+    candidates.sort((a, b) => getUsageCount(a.type) - getUsageCount(b.type));
+
+    // Show the best suggestion candidate
+    const chosen = candidates[0];
+    this.showAISuggestion(chosen.tA, chosen.tB, chosen.type);
   }
 }
 

@@ -1,7 +1,7 @@
-export function generateDisplayTitle(text) {
+export function generateDisplayTitle(text, limit = 50) {
   if (!text) return '';
-  if (text.length <= 50) return text;
-  let truncated = text.substring(0, 45);
+  if (text.length <= limit) return text;
+  let truncated = text.substring(0, limit - 5);
   const lastSpace = truncated.lastIndexOf(' ');
   if (lastSpace > 0) {
     truncated = truncated.substring(0, lastSpace);
@@ -170,19 +170,31 @@ export class Token {
     const currentWidth = this.selected ? this.baseWidth * 1.5 : this.baseWidth;
     const currentHeight = this.selected ? this.baseHeight * 1.5 : this.baseHeight;
 
+    // Calculate final width and height by incorporating scale directly
+    const finalWidth = currentWidth * this.scale;
+    const finalHeight = currentHeight * this.scale;
+
     // Position coordinates: x and y represent the center of the token.
-    const tx = this.x - currentWidth / 2;
-    const ty = this.y - currentHeight / 2;
+    const tx = this.x - finalWidth / 2;
+    const ty = this.y - finalHeight / 2;
     
     this.domElement.style.left = `${tx}px`;
     this.domElement.style.top = `${ty}px`;
-    this.domElement.style.width = `${currentWidth}px`;
-    this.domElement.style.height = `${currentHeight}px`;
+    this.domElement.style.width = `${finalWidth}px`;
+    this.domElement.style.height = `${finalHeight}px`;
     this.domElement.style.rotate = `${this.rotation}deg`;
     
-    const displayScale = this.isHoveringBin ? this.scale * 0.45 : this.scale;
-    this.domElement.style.scale = `${displayScale}`;
+    // Scale is only used for hovering bin shrink effect
+    const hoverScale = this.isHoveringBin ? 0.45 : 1.0;
+    this.domElement.style.scale = `${hoverScale}`;
     this.domElement.style.opacity = this.isHoveringBin ? '0.5' : '1';
+
+    // Calculate dynamic character limit based on scale
+    let maxChars = 50;
+    if (this.scale > 1.0) {
+      maxChars = Math.floor(50 + (this.scale - 1.0) * 150);
+    }
+    this.displayTitle = generateDisplayTitle(this.title, maxChars);
     
     // Toggle active classes
     if (this.selected) {
@@ -194,6 +206,26 @@ export class Token {
       this.domElement.classList.remove('selected');
       if (this.titleElement) {
         this.titleElement.innerText = this.displayTitle;
+      }
+    }
+
+    // Dynamic line-clamp styling to fit more text on larger scale
+    if (this.titleElement) {
+      if (this.scale > 1.0 || this.selected) {
+        this.titleElement.style.webkitLineClamp = '6';
+        this.titleElement.style.lineClamp = '6';
+      } else {
+        this.titleElement.style.webkitLineClamp = '';
+        this.titleElement.style.lineClamp = '';
+      }
+    }
+    if (this.backTitleElement) {
+      if (this.scale > 1.0) {
+        this.backTitleElement.style.webkitLineClamp = '6';
+        this.backTitleElement.style.lineClamp = '6';
+      } else {
+        this.backTitleElement.style.webkitLineClamp = '';
+        this.backTitleElement.style.lineClamp = '';
       }
     }
     
@@ -490,6 +522,10 @@ export class Token {
       this.triggerChange('dragend');
       if (isTap) {
         this.triggerChange('tap');
+      } else {
+        this.selected = false;
+        this.updateStyle();
+        this.triggerChange('select');
       }
     } else if (this.activePointers.length === 1) {
       // Transited from multi-touch back to single finger drag.
@@ -519,6 +555,8 @@ export class Token {
   startEditing() {
     if (this.editing) return;
     this.editing = true;
+    this.activePointers = [];
+    this.isDragging = false;
     this.updateStyle();
     this.triggerChange('edit');
   }
@@ -526,11 +564,15 @@ export class Token {
   stopEditing(newTitle) {
     if (!this.editing) return;
     this.editing = false;
+    this.selected = false;
+    this.activePointers = [];
+    this.isDragging = false;
     if (newTitle !== undefined && newTitle !== null) {
       this.title = newTitle;
       this.displayTitle = generateDisplayTitle(newTitle);
     }
     this.updateStyle();
+    this.triggerChange('select');
   }
   
   destroy() {

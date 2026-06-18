@@ -25,6 +25,17 @@
     <!-- Top Edge Session Header (replaces top plus button) -->
     <div class="session-header-edge top" data-side="top">
       <span class="session-header-title">Creatieve Groeisessie</span>
+      <button id="silence-nudge-btn" class="silence-nudge-btn" style="display: none;" aria-label="Stilte suggesties voorstellen">
+        <svg class="silence-nudge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+        </svg>
+        <svg class="silence-nudge-timer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 15 14"></polyline>
+        </svg>
+        <span class="silence-btn-text">Stilte</span>
+      </button>
       <button id="btn-open-settings" class="settings-edge-btn" aria-label="Instellingen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="settings-icon">
           <circle cx="12" cy="12" r="3"></circle>
@@ -34,39 +45,42 @@
     </div>
 
     <!-- Bottom Edge -->
-    <button class="edge-button bottom" data-side="bottom" style="left: 50%;" aria-label="Plant idee vanaf beneden">
+    <button class="edge-button bottom" data-side="bottom" style="left: 50%;" aria-label="Plantje vanaf beneden">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
-          <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
-          <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
+          <path d="M7 20h10"></path>
+          <path d="M10 20c5.5-2.5.8-6.4 3-10"></path>
+          <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.6-.3-1.2-.8-2-2.3-2.2-4.7 2.3-.1 3.9.3 4.5 1.3z"></path>
+          <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
         </svg>
       </span>
-      <span class="edge-button-label">plant idee</span>
+      <span class="edge-button-label">Plantje</span>
     </button>
 
     <!-- Left Edge -->
-    <button class="edge-button left" data-side="left" style="top: 50%;" aria-label="Plant idee vanaf links">
+    <button class="edge-button left" data-side="left" style="top: 50%;" aria-label="Plantje vanaf links">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
-          <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
-          <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
+          <path d="M7 20h10"></path>
+          <path d="M10 20c5.5-2.5.8-6.4 3-10"></path>
+          <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.6-.3-1.2-.8-2-2.3-2.2-4.7 2.3-.1 3.9.3 4.5 1.3z"></path>
+          <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
         </svg>
       </span>
-      <span class="edge-button-label">plant idee</span>
+      <span class="edge-button-label">Plantje</span>
     </button>
 
     <!-- Right Edge -->
-    <button class="edge-button right" data-side="right" style="top: 50%;" aria-label="Plant idee vanaf rechts">
+    <button class="edge-button right" data-side="right" style="top: 50%;" aria-label="Plantje vanaf rechts">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 21c3.7-2.4 5.8-5.4 5.8-8.8C17.8 8.4 15 5.2 12 3c-3 2.2-5.8 5.4-5.8 9.2 0 3.4 2.1 6.4 5.8 8.8z"></path>
-          <path d="M12 17.5c-.1-3 .8-5.5 2.8-7.5"></path>
-          <path d="M12.2 13.3c-1.7-.1-3.1-.8-4.2-2"></path>
+          <path d="M7 20h10"></path>
+          <path d="M10 20c5.5-2.5.8-6.4 3-10"></path>
+          <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.6-.3-1.2-.8-2-2.3-2.2-4.7 2.3-.1 3.9.3 4.5 1.3z"></path>
+          <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
         </svg>
       </span>
-      <span class="edge-button-label">plant idee</span>
+      <span class="edge-button-label">Plantje</span>
     </button>
 
     <!-- Token Container -->
@@ -75,8 +89,14 @@
 
     <!-- Settings Modal / Panel -->
     <div id="settings-panel" class="settings-panel">
-      <div class="settings-content glass-panel">
-        <h3 class="settings-title">Canvas-instellingen</h3>
+      <!-- Main settings view -->
+      <div id="settings-main-view" class="settings-content glass-panel">
+        <div class="settings-header">
+          <button id="btn-settings-close" class="action-btn secondary settings-close-btn">
+            <span>Terug naar canvas</span>
+          </button>
+          <h3 class="settings-title">Canvas-instellingen</h3>
+        </div>
         
         <div class="settings-option">
           <span class="settings-option-label">Geluidseffecten</span>
@@ -93,14 +113,124 @@
             <span class="slider"></span>
           </label>
         </div>
+
+        <div class="settings-participants-card">
+          <span class="settings-option-label">Aantal deelnemers</span>
+          <div class="settings-participants-stepper" aria-label="Aantal deelnemers">
+            <button id="settings-participants-minus" class="settings-stepper-btn" type="button" aria-label="Minder deelnemers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+            <output id="settings-participants-count" class="settings-stepper-count" aria-live="polite">3</output>
+            <button id="settings-participants-plus" class="settings-stepper-btn" type="button" aria-label="Meer deelnemers">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+          <span class="settings-stepper-help">Min. 1, max. 6 deelnemers</span>
+        </div>
+        
+        <button id="btn-settings-help" class="action-btn secondary settings-help-btn">
+          <span>Zo gebruik je het canvas</span>
+        </button>
         
         <button id="btn-settings-finish" class="action-btn settings-finish-btn">
           <span>Oogsten</span>
         </button>
+      </div>
+
+      <!-- Help view -->
+      <div id="settings-help-view" class="settings-content glass-panel" style="display: none;">
+        <div class="settings-header">
+          <button id="btn-help-back" class="action-btn secondary settings-close-btn">
+            <span>Terug naar instellingen</span>
+          </button>
+          <h3 class="settings-title">Gebaren op het canvas</h3>
+        </div>
         
-        <button id="btn-settings-close" class="action-btn secondary settings-close-btn">
-          <span>Terug naar canvas</span>
-        </button>
+        <div class="help-options-container">
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" class="help-icon">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Planten</span>
+              <span class="help-desc">Tik op een 'Plantje' knop aan de rand van het scherm.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="help-icon"><polyline points="5 9 2 12 5 15"></polyline><polyline points="9 5 12 2 15 5"></polyline><polyline points="15 19 12 22 9 19"></polyline><polyline points="19 9 22 12 19 15"></polyline><line x1="2" y1="12" x2="22" y2="12"></line><line x1="12" y1="2" x2="12" y2="22"></line></svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Verplaatsen</span>
+              <span class="help-desc">Sleep een idee-token met één vinger over het canvas.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="help-icon"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Verzorgen</span>
+              <span class="help-desc">Dubbeltik op een idee-token om de tekst aan te passen.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="help-icon"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Vergroten/verkleinen</span>
+              <span class="help-desc">Knijp of spreid twee vingers om de grootte aan te passen.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" class="help-icon">
+                <path d="M19.5 12a7.5 7.5 0 1 1-7.5-7.5c2.1 0 4.1.83 5.6 2.29L19.5 9"></path>
+                <polyline points="19.5 4.5 19.5 9 15 9"></polyline>
+              </svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Draaien</span>
+              <span class="help-desc">Draai met twee vingers op een token om deze te roteren.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="help-icon"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Verbinden</span>
+              <span class="help-desc">Sleep twee tokens dicht bij elkaar om ze samen te voegen tot een kluit.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="help-icon"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Snoeien</span>
+              <span class="help-desc">Sleep een token naar een randknop om deze te verwijderen.</span>
+            </div>
+          </div>
+          <div class="help-item">
+            <span class="help-icon-wrapper">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="help-icon"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+            </span>
+            <div class="help-details">
+              <span class="help-text">Suggestie</span>
+              <span class="help-desc">MOBUS toont soms een suggestie. Je kunt die proberen of overslaan.</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -167,94 +297,359 @@
         <div class="choose-grid">
           <!-- Active: Creatieve groeisessie -->
           <div id="card-growth-experience" class="choose-card choose-card-active">
-            <div class="choose-card-icon">🌱</div>
-            <h3 class="choose-card-title">Creatieve groeisessie</h3>
-            <p class="choose-card-desc">Plant zaden op het canvas. Verbind en voed ze tot kluiten met AI voeding.</p>
-            <div class="choose-card-badge active-badge">Tik om te starten</div>
+            <div class="choose-card-top">
+              <div class="choose-card-icon" aria-hidden="true" data-lucide-name="Sprout">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 20h10"></path>
+                  <path d="M10 20c5.5-2.5.8-6.4 3-10"></path>
+                  <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.6-.3-1.2-.8-2-2.3-2.2-4.7 2.3-.1 3.9.3 4.5 1.3z"></path>
+                  <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
+                </svg>
+              </div>
+              <div class="choose-card-heading">
+                <h3 class="choose-card-title">Creatieve groeisessie</h3>
+                <p class="choose-card-meta">Aanbevolen: 3-6 personen</p>
+              </div>
+            </div>
+            <p class="choose-card-goal">✓ Doel · Work on many ideas</p>
+            <p class="choose-card-desc">Plant ideeën op het canvas. Verbind, groepeer en voed ze met subtiele AI-suggesties.</p>
+            <div class="choose-card-badge active-badge">TIK OM TE STARTEN</div>
           </div>
 
-          <!-- Binnenkort beschikbaar -->
+          <!-- In ontwikkeling -->
           <div class="choose-card choose-card-disabled">
-            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
-            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+            <div class="choose-card-top">
+              <div class="choose-card-icon" aria-hidden="true" data-lucide-name="TrainFront">
+                <svg viewBox="0 0 24 24">
+                  <path d="M10 3h4"></path>
+                  <path d="M6 17h12"></path>
+                  <path d="M8 17l-2 3"></path>
+                  <path d="M16 17l2 3"></path>
+                  <path d="M8 7h8"></path>
+                  <path d="M8 11h8"></path>
+                  <rect x="4" y="3" width="16" height="14" rx="2"></rect>
+                </svg>
+              </div>
+              <div class="choose-card-heading">
+                <h3 class="choose-card-title">Cognitieve Coupé</h3>
+                <p class="choose-card-meta">Aanbevolen: 1 persoon</p>
+              </div>
+            </div>
+            <p class="choose-card-goal">✓ Doel · Get inspired &amp; find needs</p>
+            <p class="choose-card-desc">Kom tot rust in een gesimuleerde treinreis, terwijl MOBUS met subtiele prikkels nieuwe associaties losmaakt.</p>
+            <div class="choose-card-badge">IN ONTWIKKELING</div>
           </div>
 
           <div class="choose-card choose-card-disabled">
-            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
-            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+            <div class="choose-card-top">
+              <div class="choose-card-icon" aria-hidden="true" data-lucide-name="Compass">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"></path>
+                </svg>
+              </div>
+              <div class="choose-card-heading">
+                <h3 class="choose-card-title">Kernkompas</h3>
+                <p class="choose-card-meta">Aanbevolen: 1-3 personen</p>
+              </div>
+            </div>
+            <p class="choose-card-goal">✓ Doel · Concretize vision &amp; find core idea</p>
+            <p class="choose-card-desc">Breng een vaag idee terug tot de kern en ontdek waar de richting echt om draait.</p>
+            <div class="choose-card-badge">IN ONTWIKKELING</div>
           </div>
 
           <div class="choose-card choose-card-disabled">
-            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
-            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+            <div class="choose-card-top">
+              <div class="choose-card-icon" aria-hidden="true" data-lucide-name="GitBranch">
+                <svg viewBox="0 0 24 24">
+                  <line x1="6" x2="6" y1="3" y2="15"></line>
+                  <circle cx="18" cy="6" r="3"></circle>
+                  <circle cx="6" cy="18" r="3"></circle>
+                  <path d="M18 9a9 9 0 0 1-9 9"></path>
+                </svg>
+              </div>
+              <div class="choose-card-heading">
+                <h3 class="choose-card-title">Proceswortels</h3>
+                <p class="choose-card-meta">Aanbevolen: 2-5 personen</p>
+              </div>
+            </div>
+            <p class="choose-card-goal">✓ Doel · Visualize &amp; understand processes</p>
+            <p class="choose-card-desc">Leg stappen, betrokkenen en afhankelijkheden bloot zodat het proces zichtbaar en bespreekbaar wordt.</p>
+            <div class="choose-card-badge">IN ONTWIKKELING</div>
           </div>
 
           <div class="choose-card choose-card-disabled">
-            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
-            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+            <div class="choose-card-top">
+              <div class="choose-card-icon" aria-hidden="true" data-lucide-name="Route">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="6" cy="19" r="3"></circle>
+                  <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"></path>
+                  <circle cx="18" cy="5" r="3"></circle>
+                </svg>
+              </div>
+              <div class="choose-card-heading">
+                <h3 class="choose-card-title">Service Safari</h3>
+                <p class="choose-card-meta">Aanbevolen: 3-6 personen</p>
+              </div>
+            </div>
+            <p class="choose-card-goal">✓ Doel · Play through &amp; discuss service</p>
+            <p class="choose-card-desc">Speel een service of situatie door en ontdek samen waar de ervaring werkt of schuurt.</p>
+            <div class="choose-card-badge">IN ONTWIKKELING</div>
           </div>
 
           <div class="choose-card choose-card-disabled">
-            <h3 class="choose-card-title">Binnenkort beschikbaar</h3>
-            <p class="choose-card-desc">Nieuwe ervaring in ontwikkeling</p>
+            <div class="choose-card-top">
+              <div class="choose-card-icon" aria-hidden="true" data-lucide-name="PanelsTopLeft">
+                <svg viewBox="0 0 24 24">
+                  <rect width="18" height="18" x="3" y="3" rx="2"></rect>
+                  <path d="M3 9h18"></path>
+                  <path d="M9 21V9"></path>
+                </svg>
+              </div>
+              <div class="choose-card-heading">
+                <h3 class="choose-card-title">Toekomstvenster</h3>
+                <p class="choose-card-meta">Aanbevolen: 2-6 personen</p>
+              </div>
+            </div>
+            <p class="choose-card-goal">✓ Doel · Share &amp; discuss your vision</p>
+            <p class="choose-card-desc">Maak een toekomstbeeld zichtbaar, zodat anderen kunnen reageren, aanvullen en meedenken.</p>
+            <div class="choose-card-badge">IN ONTWIKKELING</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Summary Screen -->
-    <div id="screen-summary" class="app-screen">
-      <div class="screen-content glass-panel wide-panel">
-        <h1 class="screen-title text-center">Oogst</h1>
-        <p class="screen-subtitle text-center mb-6">Jullie belangrijkste ideeën, verbindingen en groeipad zijn gebundeld.</p>
-        
-        <div class="summary-details">
-          <!-- Left side / Session info -->
-          <div class="summary-left">
-            <div class="summary-section">
-              <label class="summary-label">Oogsttitel</label>
-              <div class="title-input-wrapper">
-                <input id="summary-session-title" type="text" value="Creatieve Groeisessie" placeholder="Geef je sessie een naam..." class="summary-title-input" />
+    <!-- Session Setup Screen -->
+    <div id="screen-session-setup" class="app-screen">
+      <div class="session-setup-screen-inner">
+        <section class="session-setup-card">
+          <div class="session-setup-header">
+            <h1 class="session-setup-title">Stel jullie sessie in</h1>
+            <p class="session-setup-subtitle">Geef MOBUS context en stem de tafel af op de groep.</p>
+          </div>
+
+          <label class="session-field">
+            <span class="session-field-label">Wat is het doel van deze sessie?</span>
+            <input
+              id="session-goal-input"
+              class="session-goal-input"
+              type="text"
+              maxlength="72"
+              placeholder="Bijv. nieuwe campagne-ideeën bedenken"
+              autocomplete="off"
+            >
+            <span id="session-goal-error" class="session-field-error">Vul eerst een sessiedoel in.</span>
+          </label>
+
+          <div class="session-setup-row">
+            <div class="session-stepper-card">
+              <span class="session-field-label">Aantal deelnemers</span>
+              <div class="session-stepper" aria-label="Aantal deelnemers">
+                <button id="session-participants-minus" class="session-stepper-btn" type="button" aria-label="Minder deelnemers">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <output id="session-participants-count" class="session-stepper-count" aria-live="polite">3</output>
+                <button id="session-participants-plus" class="session-stepper-btn" type="button" aria-label="Meer deelnemers">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
               </div>
+              <span class="session-stepper-help">Min. 1, max. 6 deelnemers</span>
             </div>
-            
-            <!-- Compact stats row -->
-            <div id="summary-stats-row" class="summary-stats-row"></div>
-            
-            <!-- Conclusion -->
-            <div class="summary-section">
-              <label class="summary-label">Groeipad</label>
-              <div id="summary-conclusion" class="summary-conclusion-text"></div>
-            </div>
-            
-            <!-- Nudge details -->
-            <div class="summary-nudge-details">
-              <div class="summary-nudge-section">
-                <label class="summary-label">Gebruikte voeding</label>
-                <div id="summary-used-nudges" class="summary-nudge-tags"></div>
-              </div>
-              <div class="summary-nudge-section">
-                <label class="summary-label">Niet gebruikte voeding</label>
-                <div id="summary-skipped-nudges" class="summary-nudge-tags"></div>
-              </div>
+
+            <div class="session-toggle-card">
+              <label class="session-toggle-row">
+                <span>Geur</span>
+                <span class="session-toggle">
+                  <input id="session-toggle-smell" type="checkbox">
+                  <span class="session-toggle-slider"></span>
+                </span>
+              </label>
+              <label class="session-toggle-row">
+                <span>Geluid</span>
+                <span class="session-toggle">
+                  <input id="session-toggle-sound" type="checkbox" checked>
+                  <span class="session-toggle-slider"></span>
+                </span>
+              </label>
             </div>
           </div>
 
-          <!-- Right side / Session output -->
-          <div class="summary-right">
-            <label class="summary-label">Geplante zaden & kluiten</label>
-            <div id="summary-groups-list" class="summary-groups-list">
-              <!-- Dynamically populated -->
+          <button id="btn-session-setup-start" class="session-setup-start-btn" type="button">
+            <span>Start sessie</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </section>
+      </div>
+    </div>
+
+    <!-- Summary Screen -->
+    <div id="screen-summary" class="app-screen">
+      <div class="screen-content glass-panel wide-panel infographic-panel">
+        <h1 class="screen-title text-center">Oogst</h1>
+        <p class="screen-subtitle text-center">Een visuele samenvatting van jullie sessie. De volledige oogst stuur je naar je mail.</p>
+        
+        <!-- Hidden input to avoid breaking JS code referencing summary-session-title -->
+        <input id="summary-session-title" type="hidden" value="Wachten als creatieve pauze" />
+
+        <!-- 4 Stats Cards Row -->
+        <div class="infographic-stats-row">
+          <!-- Card 1: Geplante ideeën -->
+          <div class="stat-card">
+            <div class="stat-card-icon-wrapper sprout-wrapper">
+              <svg class="stat-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22V12"></path>
+                <path d="M12 12c2-2 5-2 5-5s-3-2-5 1c-2-3-5-4-5-1s3 3 5 5z"></path>
+              </svg>
+            </div>
+            <div class="stat-card-info">
+              <span class="stat-card-label">Geplante ideeën</span>
+              <span id="stat-ideas-count" class="stat-card-number">0</span>
+              <span class="stat-card-sub">zaadjes geplant</span>
+            </div>
+          </div>
+          
+          <!-- Card 2: Gevormde kluiten -->
+          <div class="stat-card">
+            <div class="stat-card-icon-wrapper cluster-wrapper">
+              <svg class="stat-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                <polyline points="2 17 12 22 22 17"></polyline>
+                <polyline points="2 12 12 17 22 12"></polyline>
+              </svg>
+            </div>
+            <div class="stat-card-info">
+              <span class="stat-card-label">Gevormde kluiten</span>
+              <span id="stat-groups-count" class="stat-card-number">0</span>
+              <span class="stat-card-sub">kluiten gevormd</span>
+            </div>
+          </div>
+          
+          <!-- Card 3: Wortelverbindingen -->
+          <div class="stat-card">
+            <div class="stat-card-icon-wrapper root-wrapper">
+              <svg class="stat-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="18" cy="5" r="3"></circle>
+                <circle cx="6" cy="12" r="3"></circle>
+                <circle cx="18" cy="19" r="3"></circle>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+              </svg>
+            </div>
+            <div class="stat-card-info">
+              <span class="stat-card-label">Wortelverbindingen</span>
+              <span id="stat-connections-count" class="stat-card-number">0</span>
+              <span class="stat-card-sub">verbindingen gelegd</span>
+            </div>
+          </div>
+          
+          <!-- Card 4: Gebruikte voeding -->
+          <div class="stat-card">
+            <div class="stat-card-icon-wrapper droplet-wrapper">
+              <svg class="stat-card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22a7 7 0 0 0 7-7c0-4.3-7-13-7-13S5 10.7 5 15a7 7 0 0 0 7 7z"></path>
+              </svg>
+            </div>
+            <div class="stat-card-info">
+              <span class="stat-card-label">Gebruikte voeding</span>
+              <span id="stat-nudges-count" class="stat-card-number">0</span>
+              <span class="stat-card-sub">voedingen gebruikt</span>
             </div>
           </div>
         </div>
 
-        <div class="summary-actions">
-          <button id="btn-annuleren" class="action-btn secondary">
+        <!-- Infographic Content Area -->
+        <div class="infographic-main-area">
+          <!-- Left Column: Visual network graph -->
+          <div class="infographic-visual-container">
+            <div class="visual-bg-blob"></div>
+            <svg id="infographic-svg" viewBox="0 0 600 300" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          
+          <!-- Right Column: Highlights card -->
+          <div class="highlights-panel">
+            <h3 class="highlights-title">Highlights</h3>
+            <div class="highlights-list">
+              <!-- Highlight 1: Sterkste kluit -->
+              <div class="highlight-item">
+                <div class="highlight-icon-wrapper">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="12 8 13.09 11.26 16.5 11.27 13.5 13.14 14.68 16.5 12 14.77 9.32 16.5 10.5 13.14 7.5 11.27 10.91 11.26 12 8"></polygon>
+                  </svg>
+                </div>
+                <div class="highlight-info">
+                  <span class="highlight-label">Sterkste kluit</span>
+                  <span id="highlight-strongest-cluster" class="highlight-value">-</span>
+                  <span id="highlight-strongest-sub" class="highlight-sub">-</span>
+                </div>
+              </div>
+              
+              <!-- Highlight 2: Meest actieve groeipad -->
+              <div class="highlight-item">
+                <div class="highlight-icon-wrapper">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22V12"></path>
+                    <path d="M12 12c2-2 5-2 5-5s-3-2-5 1c-2-3-5-4-5-1s3 3 5 5z"></path>
+                  </svg>
+                </div>
+                <div class="highlight-info">
+                  <span class="highlight-label">Meest actieve groeipad</span>
+                  <span id="highlight-active-path" class="highlight-value">-</span>
+                  <span id="highlight-active-sub" class="highlight-sub">-</span>
+                </div>
+              </div>
+              
+              <!-- Highlight 3: Kerninzicht -->
+              <div class="highlight-item">
+                <div class="highlight-icon-wrapper">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A5 5 0 0 0 8 8c0 1 .3 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path>
+                    <line x1="9" y1="18" x2="15" y2="18"></line>
+                    <line x1="10" y1="22" x2="14" y2="22"></line>
+                  </svg>
+                </div>
+                <div class="highlight-info">
+                  <span class="highlight-label">Kerninzicht</span>
+                  <span id="highlight-insight" class="highlight-value">-</span>
+                  <span id="highlight-insight-sub" class="highlight-sub">Focus op samenwerking en eigenaarschap.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Message -->
+        <div class="infographic-footer-message">
+          <svg class="footer-mail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+          <span>De volledige oogst met alle details ontvang je per e-mail.</span>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="infographic-actions">
+          <button id="btn-annuleren" class="infographic-btn secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
             <span>Terug naar canvas</span>
           </button>
-          <button id="btn-afronden" class="action-btn">
-            <span>Oogst mailen</span>
+          <button id="btn-afronden" class="infographic-btn primary">
+            <svg class="btn-mail-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <span>Mail volledige oogst</span>
           </button>
         </div>
         
@@ -296,6 +691,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js?v=settings-participants"></script>
 </body>
 </html>
