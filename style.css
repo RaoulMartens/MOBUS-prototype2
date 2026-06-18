@@ -319,9 +319,9 @@ body, html {
 }
 
 .edge-button.bin-mode .icon {
-  background: #dc2626;
-  border-color: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
+  background: #dc2626 !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
   box-shadow:
     0 6px 20px rgba(220, 38, 38, 0.4),
     0 0 0 3px rgba(220, 38, 38, 0.25);
@@ -329,9 +329,9 @@ body, html {
 }
 
 .edge-button.bin-mode .edge-button-label {
-  background: #dc2626;
-  border-color: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
+  background: #dc2626 !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
   box-shadow:
     0 6px 18px rgba(220, 38, 38, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
@@ -339,8 +339,8 @@ body, html {
 
 .edge-button.bin-mode.drag-over .icon,
 .edge-button.bin-mode.drag-over .edge-button-label {
-  background: #b91c1c;
-  color: #ffffff;
+  background: #b91c1c !important;
+  color: #ffffff !important;
 }
 
 /* Spawning visual feedback */

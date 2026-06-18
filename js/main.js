@@ -2408,13 +2408,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
 
     const silenceBtn = document.getElementById('silence-nudge-btn');
     if (silenceBtn) {
-      silenceBtn.addEventListener('pointerdown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (this.activeNudge && this.activeNudge.type === 'stilte') {
-          this.expandDot(this.activeNudge.tA, null, window.innerWidth / 2, 110);
-        }
-      });
+      silenceBtn.style.display = 'none';
     }
   }
 
@@ -2492,26 +2486,16 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     let dist = 0;
     
     if (nudgeType === 'stilte') {
-      // Show top bar silence button
       const silenceBtn = document.getElementById('silence-nudge-btn');
       if (silenceBtn) {
-        silenceBtn.style.display = 'flex';
-        if (isSensing) {
-          silenceBtn.classList.add('sensing');
-        } else {
-          silenceBtn.classList.remove('sensing');
-        }
+        silenceBtn.style.display = 'none';
+        silenceBtn.classList.remove('sensing');
       }
       
-      if (isExpanded) {
-        dotX = window.innerWidth / 2;
-        dotY = 110;
-        rotation = 0;
-      } else {
-        if (dot) dot.style.display = 'none';
-        dotX = window.innerWidth / 2;
-        dotY = -200; // place offscreen
-      }
+      dotX = tA ? tA.x : window.innerWidth / 2;
+      dotY = tA ? Math.max(120, tA.y - 110) : window.innerHeight / 2;
+      rotation = tA ? tA.rotation : 0;
+      if (dot) dot.style.display = 'flex';
       if (path) path.style.opacity = '0';
       if (hoverPath) hoverPath.removeAttribute('d');
     } else {
@@ -2705,9 +2689,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       hintIcon = dot.querySelector('.ai-dot-hint-icon');
     }
     
-    if (nudgeType !== 'stilte') {
-      dot.style.display = 'flex';
-    }
+    dot.style.display = 'flex';
     
     // Set class lists dynamically based on type
     dot.className = 'ai-indicator-dot';
@@ -2744,6 +2726,9 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
               break;
             case 'verplaatsen':
               hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>`;
+              break;
+            case 'stilte':
+              hintIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>`;
               break;
             default:
               hintIcon.innerHTML = `+`;

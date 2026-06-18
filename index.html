@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>MOBUS - Interactive Tabletop Playground</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=red-snoei">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -25,17 +25,6 @@
     <!-- Top Edge Session Header (replaces top plus button) -->
     <div class="session-header-edge top" data-side="top">
       <span class="session-header-title">Creatieve Groeisessie</span>
-      <button id="silence-nudge-btn" class="silence-nudge-btn" style="display: none;" aria-label="Stilte suggesties voorstellen">
-        <svg class="silence-nudge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
-          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
-        </svg>
-        <svg class="silence-nudge-timer-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"></circle>
-          <polyline points="12 6 12 12 15 14"></polyline>
-        </svg>
-        <span class="silence-btn-text">Stilte</span>
-      </button>
       <button id="btn-open-settings" class="settings-edge-btn" aria-label="Instellingen">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="settings-icon">
           <circle cx="12" cy="12" r="3"></circle>
@@ -691,6 +680,6 @@
     </div>
   </div>
 
-  <script type="module" src="js/main.js?v=settings-participants"></script>
+  <script type="module" src="js/main.js?v=no-header-stilte"></script>
 </body>
 </html>
