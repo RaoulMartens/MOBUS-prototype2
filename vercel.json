@@ -1,0 +1,13 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/wall",
+      "destination": "/wall.html"
+    },
+    {
+      "source": "/wall/",
+      "destination": "/wall.html"
+    }
+  ]
+}
