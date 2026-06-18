@@ -3576,14 +3576,6 @@ body, html {
   color: hsl(var(--muted-foreground));
 }
 
-.settings-option-help {
-  max-width: 250px;
-  font-family: var(--font-family);
-  font-size: 11px;
-  line-height: 1.35;
-  color: hsl(var(--muted-foreground) / 0.74);
-}
-
 .settings-participants-card {
   display: flex;
   flex-direction: column;
