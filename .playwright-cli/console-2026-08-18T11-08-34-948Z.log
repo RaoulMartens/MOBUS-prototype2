@@ -1,0 +1,42 @@
+[     401ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/wall-state?session=mobus-live:0
+[     569ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/favicon.ico:0
+[  325563ms] [LOG] Session result: {sessionTitle: Wachten als creatieve pauze, totalIdeas: 0, looseIdeas: Array(0), groups: Array(0), usedNudges: Array(0)} @ http://localhost:3000/js/main.js?v=harvest-finale-v35:1932
+[  325563ms] [LOG] 
+============================================================
+ðŸŒ± MOBUS OOGST RAPPORT: WACHTEN ALS CREATIEVE PAUZE
+============================================================
+Verzonden naar: test@example.com
+Datum:          18-8-2026
+------------------------------------------------------------
+STATISTIEKEN SUMMARY:
+- Totaal aantal ideeÃ«n: 0
+- Gevormde kluiten:     0
+- Losse zaden:          0
+- Wortelverbindingen:  0
+- Gebruikte voeding:    0
+------------------------------------------------------------
+KERNINZICHT:
+De groeisessie leverde vooral losse zaden op. Een vervolgstap kan zijn om wortelverbindingen te maken, ze te laten botsen of te groeperen tot kluiten.
+------------------------------------------------------------
+VOLLEDIGE OOGST DETAILS:
+
+â–  Geen kluiten gevormd.
+
+â–  LOSSE ZADEN (VRIJ GEZAAID):
+Geen losse zaden.
+
+------------------------------------------------------------
+WORTELVERBINDINGEN & INTERACTIES:
+Geen wortelverbindingen gelegd.
+
+------------------------------------------------------------
+SUGGESTIES VAN MOBUS (AI VOEDING):
+- Gebruikt (0):
+  (Geen)
+- Overgeslagen (0):
+  (Geen)
+============================================================
+ @ http://localhost:3000/js/main.js?v=harvest-finale-v35:1933
+[  325572ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/wall-state?session=mobus-live:0
+[  420376ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/wall-state?session=mobus-live:0
+[  421840ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:3000/api/wall-state?session=mobus-live:0

@@ -1,4 +1,4 @@
-import { Token } from './token.js';
+import { Token } from './token.js?v=organic-footprint-v4';
 
 export class GroupToken extends Token {
   constructor(id, x, y, rotation, title = "Kluit", childTokensData = [], onStateChange) {
@@ -7,9 +7,12 @@ export class GroupToken extends Token {
     this.childTokensData = childTokensData; // Array of { id, title, borderRadius, rotation }
     this.childTokenInstances = []; // Active Token objects when expanded
     this.expanded = false;
+    this.exploreTapTimer = null;
+    this.lastExpandToggleAt = 0;
     
-    this.baseWidth = 160;
-    this.baseHeight = 130;
+    this.baseWidth = 190;
+    this.baseHeight = 108;
+    this.updateStyle();
     
     // Initialize temporary defaults for expanded dimensions
     this.expandedWidth = 400;
@@ -19,6 +22,10 @@ export class GroupToken extends Token {
     if (this.badgeElement) {
       this.badgeElement.innerText = this.childTokensData ? this.childTokensData.length : 0;
     }
+    this.domElement?.setAttribute(
+      'aria-label',
+      `${this.title}, kluit met ${this.childTokensData.length} ideeën. Dubbel tik om te openen`
+    );
   }
 
   createDom() {
@@ -26,6 +33,9 @@ export class GroupToken extends Token {
     el.className = 'idea-token group-token spawning';
     el.id = `token-${this.id}`;
     el.style.borderRadius = this.borderRadius;
+    el.setAttribute('role', 'button');
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('aria-label', `${this.title}, kluit met ${this.childTokensData?.length || 0} ideeën. Dubbel tik om te openen`);
     
     // Stacked paper backgrounds for layered card look
     const layer1 = document.createElement('div');
@@ -48,6 +58,7 @@ export class GroupToken extends Token {
     title.className = 'token-title';
     title.innerText = this.title;
     el.appendChild(title);
+    this.appendSprouts(el);
     
     this.domElement = el;
     this.titleElement = title;
@@ -72,8 +83,8 @@ export class GroupToken extends Token {
       return {};
     }
 
-    const wc = 120; // child token effective width (160 * 0.75)
-    const hc = 98; // child token effective height (130 * 0.75)
+    const wc = 143; // child token effective width (190 * 0.75)
+    const hc = 81; // child token effective height (108 * 0.75)
     const hGap = 20;
     const vGap = 20;
     
@@ -153,6 +164,11 @@ export class GroupToken extends Token {
       this.domElement.style.height = `${this.baseHeight}px`;
       this.domElement.style.borderRadius = this.borderRadius;
     }
+    this.domElement.setAttribute('aria-expanded', String(this.expanded));
+    this.domElement.setAttribute(
+      'aria-label',
+      `${this.title}, kluit met ${this.childTokensData?.length || 0} ideeën. Dubbel tik om te ${this.expanded ? 'sluiten' : 'openen'}`
+    );
     
     super.updateStyle();
 
@@ -198,6 +214,24 @@ export class GroupToken extends Token {
     }
   }
 
+  startEditing() {
+    const now = Date.now();
+    if (now - this.lastExpandToggleAt < 350) return;
+    this.lastExpandToggleAt = now;
+    clearTimeout(this.exploreTapTimer);
+    this.exploreTapTimer = null;
+    this.toggleExpand();
+  }
+
+  scheduleToggle(callback) {
+    clearTimeout(this.exploreTapTimer);
+    if (Date.now() - this.lastExpandToggleAt < 350) return;
+    this.exploreTapTimer = setTimeout(() => {
+      this.exploreTapTimer = null;
+      if (Date.now() - this.lastExpandToggleAt >= 350) callback();
+    }, 320);
+  }
+
   expand() {
     if (this.expanded) return;
     this.expanded = true;
@@ -234,7 +268,7 @@ export class GroupToken extends Token {
         this.y,
         data.rotation !== undefined ? data.rotation : this.rotation,
         data.title,
-        (t, type) => this.handleChildStateChange(t, type)
+        (t, type, event) => this.handleChildStateChange(t, type, event)
       );
       
       // Keep individual organic shapes
@@ -245,6 +279,7 @@ export class GroupToken extends Token {
       }
       
       childToken.isChild = true;
+      childToken.setRooted(false);
       childToken.parentGroup = this;
       childToken.scale = 0;
       childToken.updateStyle();
@@ -267,6 +302,7 @@ export class GroupToken extends Token {
   collapse() {
     if (!this.expanded) return;
     this.expanded = false;
+    if (this.domElement) this.domElement.style.zIndex = '';
     this.updateStyle();
     
     // Animate children back to center and shrink
@@ -288,8 +324,10 @@ export class GroupToken extends Token {
     }, 300);
   }
 
-  handleChildStateChange(child, type) {
-    if (type === 'edit') {
+  handleChildStateChange(child, type, event = null) {
+    if (type === 'pointerintent') {
+      return window.canvasManager.handleTokenStateChange(child, type, event);
+    } else if (type === 'edit') {
       window.canvasManager.editToken(child);
     } else if (type === 'dragmove') {
       this.checkChildEjection(child);
@@ -352,7 +390,7 @@ export class GroupToken extends Token {
       child.domElement.classList.remove('child-token');
       child.applyBoundaries();
       child.updateStyle();
-      child.onStateChange = (t, type) => window.canvasManager.handleTokenStateChange(t, type);
+      child.onStateChange = (t, type, event) => window.canvasManager.handleTokenStateChange(t, type, event);
       
       if (this.childTokensData.length <= 1) {
         this.dissolve();
@@ -400,7 +438,7 @@ export class GroupToken extends Token {
         this.y,
         data.rotation !== undefined ? data.rotation : this.rotation,
         data.title,
-        (t, type) => this.handleChildStateChange(t, type)
+        (t, type, event) => this.handleChildStateChange(t, type, event)
       );
       
       childToken.borderRadius = data.borderRadius;
@@ -410,6 +448,7 @@ export class GroupToken extends Token {
       }
       
       childToken.isChild = true;
+      childToken.setRooted(false);
       childToken.parentGroup = this;
       childToken.scale = 0;
       childToken.updateStyle();
@@ -437,12 +476,13 @@ export class GroupToken extends Token {
       const remainingChild = this.childTokenInstances[0];
       
       remainingChild.isChild = false;
+      remainingChild.setRooted(true, true);
       remainingChild.parentGroup = null;
       remainingChild.scale = 1.0;
       remainingChild.domElement.classList.remove('child-token');
       remainingChild.applyBoundaries();
       remainingChild.updateStyle();
-      remainingChild.onStateChange = (t, type) => window.canvasManager.handleTokenStateChange(t, type);
+      remainingChild.onStateChange = (t, type, event) => window.canvasManager.handleTokenStateChange(t, type, event);
       
       this.childTokenInstances = [];
     } else if (this.childTokensData.length > 0) {
@@ -453,7 +493,7 @@ export class GroupToken extends Token {
         this.y,
         this.rotation,
         data.title,
-        (t, type) => window.canvasManager.handleTokenStateChange(t, type)
+        (t, type, event) => window.canvasManager.handleTokenStateChange(t, type, event)
       );
       token.borderRadius = data.borderRadius;
       if (token.domElement) {

@@ -1,27 +1,11 @@
-import { InputCard } from './inputCard.js';
-import { Token } from './token.js';
-import { GroupToken } from './groupToken.js';
+import { InputCard } from './inputCard.js?v=toolbar-keyboard-v1';
+import { Token } from './token.js?v=organic-footprint-v4';
+import { GroupToken } from './groupToken.js?v=organic-footprint-v4';
+import { GardeningToolbar } from './gardeningToolbar.js?v=farm-sounds-v1';
+import { TerrainBackground } from './terrainBackground.js?v=unified-contour-v4';
+import { HarvestMarket } from './harvestMarket.js?v=farm-sounds-v1';
+import { FarmSoundEffects } from './farmSoundEffects.js?v=cheerful-ambient-v7';
 import { generateGroupName, checkThemeMatch, getThemeExplanation } from './nameGenerator.js';
-
-const PLANT_ICON = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M7 20h10"></path>
-  <path d="M10 20c5.5-2.5.8-6.4 3-10"></path>
-  <path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.6-.3-1.2-.8-2-2.3-2.2-4.7 2.3-.1 3.9.3 4.5 1.3z"></path>
-  <path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.4 1.7-4.6-2.7.1-4 1-4.9 2z"></path>
-</svg>`;
-
-const PLANT_LABEL = 'Plant je idee';
-const BIN_LABEL = 'Snoei';
-
-const BIN_ICON = `
-<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="6" cy="6" r="3"></circle>
-  <circle cx="6" cy="18" r="3"></circle>
-  <path d="M20 4 8.12 15.88"></path>
-  <path d="M14.47 14.48 20 20"></path>
-  <path d="M8.12 8.12 12 12"></path>
-</svg>`;
 
 class SubtleSoundEffects {
   constructor() {
@@ -310,52 +294,83 @@ class CanvasManager {
     this.lastActivityTime = Date.now();
     this.smellEffectsEnabled = false;
     this.soundEffectsEnabled = true;
-    this.sounds = new SubtleSoundEffects();
+    this.sounds = new FarmSoundEffects();
+    this.nudgeFeedbackElement = null;
+    this.nudgeFeedbackTimeout = null;
     this.sessionGoal = 'Creatieve groeisessie';
     this.participantCount = 3;
+    this.activeTool = 'move';
+    this.toolbars = [];
+    this.participantToolModes = new Map();
+    this.tokenInteractionTools = new Map();
+    this.pendingSeeds = new Map();
+    this.heldToolActionStates = new Map();
+    this.shovelIntervals = new Map();
+    this.discoveryPatches = [];
+    this.discoveryPatchCounter = 0;
+    this.wateringIntervals = new Map();
+    this.terrainBackground = new TerrainBackground(document.getElementById('canvas'));
+    this.harvestMarket = new HarvestMarket({
+      canvas: document.getElementById('canvas'),
+      getTokens: () => this.tokens,
+      getToolbars: () => this.toolbars,
+      getParticipantCount: () => this.participantCount,
+      onChange: () => {
+        this.lastActivityTime = Date.now();
+        this.updateGrowthVisualization();
+      },
+      onSound: sound => {
+        if (!this.soundEffectsEnabled) return;
+        const soundHandlers = {
+          tap: () => this.sounds.playUiTap(),
+          enter: () => this.sounds.playHarvestEnter(),
+          peel: () => this.sounds.playStickerPeel(),
+          place: () => this.sounds.playStickerPlace(),
+          return: () => this.sounds.playStickerReturn(),
+          complete: () => this.sounds.playHarvestComplete()
+        };
+        soundHandlers[sound]?.();
+      },
+      onComplete: snapshot => {
+        if (snapshot.complete) this.transitionTo('sessionSummary');
+      }
+    });
     
     // Empty state tracking
     this.emptyStateVisible = false;
     this.emptyStateOverlay = null;
     this.exampleTokenIds = new Set();
     
-    this.setupEdgeButtons();
+    this.configureParticipantToolbars(this.participantCount);
     this.setupBackgroundDeselect();
     this.setupWindowResize();
     this.setupGroupPreviewLine();
-    this.setupAISuggestionElements();
-    
-    // Periodically tick pattern reader conditions
-    this.suggestionTicker = setInterval(() => {
-      if (this.currentState === 'tableSession') {
-        this.updateAISuggestions();
-      }
-    }, 2000);
+    this.disableLegacySuggestions();
     
     // Setup state management for navigation flow
     this.setupStateManagement();
+    this.setupSoundFeedback();
     this.transitionTo('welcome');
   }
 
-  getEdgeButtonCenter(btn) {
-    const target = btn.querySelector('.icon') || btn;
+  setupSoundFeedback() {
+    document.addEventListener('click', event => {
+      if (!this.soundEffectsEnabled) return;
+      const button = event.target.closest('button');
+      if (!button || button.disabled) return;
+      if (button.closest('.gardening-toolbar, .virtual-keyboard')) return;
+      if (button.matches('#btn-finish-harvest, #btn-session-setup-start, #btn-settings-finish, #btn-email-send')) return;
+      this.sounds.playUiTap();
+    });
+  }
+
+  getToolbarCenter(toolbarElement) {
+    const target = toolbarElement.querySelector('.toolbar-shell') || toolbarElement;
     const rect = target.getBoundingClientRect();
     return {
       x: rect.left + rect.width / 2,
       y: rect.top + rect.height / 2
     };
-  }
-
-  getPlantButtonAriaLabel(btn) {
-    const sideLabels = {
-      top: 'boven',
-      bottom: 'beneden',
-      left: 'links',
-      right: 'rechts'
-    };
-    const side = sideLabels[btn.dataset.side] || 'deze zijde';
-    const participant = btn.dataset.participant ? ` deelnemer ${btn.dataset.participant}` : '';
-    return `${PLANT_LABEL}${participant} vanaf ${side}`;
   }
 
   playConnectionAppearanceSound(pairKey) {
@@ -402,52 +417,22 @@ class CanvasManager {
     this.previewLine = line;
     this.previewCandidateA = null;
     this.previewCandidateB = null;
-  }
-  
-  setupEdgeButtons() {
-    const buttons = document.querySelectorAll('.edge-button');
-    buttons.forEach(btn => {
-      this.attachEdgeButton(btn);
-    });
-  }
 
-  attachEdgeButton(btn) {
-    btn.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.spawnTokenFromButton(btn);
-    });
+    const marks = document.createElement('div');
+    marks.className = 'connection-feedforward';
+    marks.innerHTML = '<span></span><span></span><span></span>';
+    document.getElementById('canvas').appendChild(marks);
+    this.connectionFeedforward = marks;
   }
 
-  createEdgeButton(side, positionPercent, participantIndex) {
-    const btn = document.createElement('button');
-    btn.className = `edge-button ${side}`;
-    btn.dataset.side = side;
-    btn.dataset.participant = String(participantIndex);
-    btn.type = 'button';
-    btn.setAttribute('aria-label', this.getPlantButtonAriaLabel(btn));
-
-    if (side === 'bottom') {
-      btn.style.left = `${positionPercent}%`;
-    } else {
-      btn.style.top = `${positionPercent}%`;
-    }
-
-    btn.innerHTML = `
-      <span class="icon">${PLANT_ICON}</span>
-      <span class="edge-button-label">${PLANT_LABEL}</span>
-    `;
-
-    this.attachEdgeButton(btn);
-    return btn;
-  }
-
-  configureParticipantEdgeButtons(count = this.participantCount) {
+  configureParticipantToolbars(count = this.participantCount) {
     const canvas = document.getElementById('canvas');
     const tokenContainer = document.getElementById('token-container');
     if (!canvas || !tokenContainer) return;
 
-    document.querySelectorAll('.edge-button').forEach(btn => btn.remove());
+    this.cancelAllPendingSeeds();
+    this.toolbars.forEach(toolbar => toolbar.destroy());
+    this.toolbars = [];
 
     const layouts = {
       1: ['bottom'],
@@ -468,64 +453,981 @@ class CanvasManager {
       sideSeen[side] = (sideSeen[side] || 0) + 1;
       const total = sideTotals[side];
       const position = ((sideSeen[side]) / (total + 1)) * 100;
-      const btn = this.createEdgeButton(side, position, index + 1);
-      canvas.insertBefore(btn, tokenContainer);
+      const toolbar = new GardeningToolbar({
+        side,
+        positionPercent: position,
+        participantIndex: index + 1,
+        activeTool: this.participantToolModes.get(index + 1) || 'move',
+        onToolChange: (tool, sourceToolbar, event) => this.setActiveTool(tool, sourceToolbar, event),
+        onHeldToolLift: (tool, sourceToolbar, position) => this.handleHeldToolLift(tool, sourceToolbar, position),
+        onHeldToolGrab: (tool, sourceToolbar, position) => this.handleHeldToolGrab(tool, sourceToolbar, position),
+        onHeldToolMove: (tool, sourceToolbar, position) => this.handleHeldToolMove(tool, sourceToolbar, position),
+        onHeldToolRelease: (tool, sourceToolbar, position, wasDragged) => this.handleHeldToolRelease(tool, sourceToolbar, position, wasDragged),
+        onHeldToolDock: (tool, sourceToolbar) => this.handleHeldToolDock(tool, sourceToolbar),
+        onSeedExtracted: () => {
+          if (this.soundEffectsEnabled) this.sounds.playSeedPull();
+        },
+        onHarvestStickerDragStart: (participant, slot, event) => this.harvestMarket.startToolbarStickerDrag(participant, slot, event)
+      });
+      canvas.insertBefore(toolbar.domElement, tokenContainer);
+      this.toolbars.push(toolbar);
+      this.participantToolModes.set(index + 1, toolbar.activeTool);
     });
+    this.harvestMarket.syncToolbars();
+    this.updateCanvasToolState();
   }
-  
-  spawnTokenFromButton(btn) {
-    if (this.silenceModeActive) return;
-    const side = btn.dataset.side;
-    const { x: btnX, y: btnY } = this.getEdgeButtonCenter(btn);
-    
-    let spawnX = btnX;
-    let spawnY = btnY;
+
+  setActiveTool(tool, sourceToolbar = null, sourceEvent = null) {
+    if (this.silenceModeActive || this.harvestMarket.active || this.harvestMarket.complete) return;
+    if (!['input', 'move', 'connect'].includes(tool)) return;
+    if (!sourceToolbar) return;
+
+    this.dismissEmptyState();
+
+    if (tool !== 'input' || this.pendingSeeds.has(sourceToolbar.participantIndex)) {
+      this.cancelPendingSeed(sourceToolbar);
+    }
+    this.activeTool = tool;
+    sourceToolbar.setActiveTool(tool);
+    sourceToolbar.liftTool(tool, sourceEvent);
+    this.participantToolModes.set(sourceToolbar.participantIndex, tool);
+    if (tool === 'input') {
+      sourceToolbar.showContext('Zaadjes', 'Sleep de zaadzak naar een plek op tafel en laat los om te planten.');
+    }
+    else if (tool === 'move') {
+      sourceToolbar.showContext('Schep', 'Sleep de schep boven een idee en houd vast tot het loskomt.');
+    } else {
+      sourceToolbar.showContext('Gieter', 'Houd de gieter tussen twee ideeën tot ze samen een kluit vormen.');
+    }
+    this.updateCanvasToolState();
+    this.clearProximityPreview();
+  }
+
+  updateCanvasToolState() {
+    const modes = new Set(this.toolbars.map(toolbar => toolbar.activeTool));
+    const canvasMode = modes.size === 1 ? [...modes][0] : 'mixed';
+    document.getElementById('canvas')?.setAttribute('data-active-tool', canvasMode);
+  }
+
+  getToolbarForPoint(x, y) {
+    let closestToolbar = null;
+    let closestDistance = Infinity;
+    this.toolbars.forEach(toolbar => {
+      const center = this.getToolbarCenter(toolbar.heldToolElement || toolbar.domElement);
+      const distance = Math.hypot(x - center.x, y - center.y);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestToolbar = toolbar;
+      }
+    });
+    return closestToolbar;
+  }
+
+  getInteractionTool(token) {
+    return this.tokenInteractionTools.get(token.id) || 'move';
+  }
+
+  handleHeldToolLift(tool, toolbar, position) {
+    const participant = toolbar.participantIndex;
+    this.clearHeldToolAction(participant);
+    this.heldToolActionStates.set(participant, {
+      tool,
+      toolbar,
+      position,
+      hoveredToken: null,
+      hoveredDiscovery: null,
+      shovelHoverStartedAt: 0,
+      lastUprootedToken: null,
+      wateringPair: null,
+      wateringPairKey: null,
+      wateringPairMotion: null,
+      wateringStartedAt: 0,
+      lastTerrainWetAt: 0,
+      lastTerrainWetPosition: null,
+      isHeld: false,
+      merging: false
+    });
+    if (this.soundEffectsEnabled) this.sounds.playToolLift(tool);
+    if (tool === 'move') this.startShovel(toolbar);
+  }
+
+  handleHeldToolGrab(tool, toolbar, position) {
+    const state = this.heldToolActionStates.get(toolbar.participantIndex);
+    if (!state || state.tool !== tool) return;
+    state.position = position;
+    state.isHeld = true;
+    if (tool === 'connect') this.startWatering(toolbar);
+  }
+
+  handleHeldToolMove(tool, toolbar, position) {
+    const state = this.heldToolActionStates.get(toolbar.participantIndex);
+    if (!state || state.tool !== tool) return;
+    state.position = position;
+    if (tool === 'move') this.updateShovelAction(state);
+    if (tool === 'connect' && state.isHeld) {
+      this.wetTerrainFromWateringCan(state);
+      this.updateWateringConnection(state);
+    }
+  }
+
+  handleHeldToolRelease(tool, toolbar, position, wasDragged = false) {
+    const state = this.heldToolActionStates.get(toolbar.participantIndex);
+    if (!state || state.tool !== tool) return;
+    if (tool === 'input') {
+      state.isHeld = false;
+      if (!wasDragged) {
+        toolbar.dockHeldTool();
+        toolbar.showContext('Zaadjes', 'Sleep de zaadzak vanuit de toolbar naar een plek op tafel.');
+        return;
+      }
+      if (!toolbar.isHeldToolOverToolbar()) this.plantSeedFromBag(toolbar, position);
+      return;
+    }
+    if (tool === 'move') this.clearShovelTarget(state);
+    if (tool === 'connect') {
+      state.isHeld = false;
+      this.stopWatering(toolbar.participantIndex);
+    }
+  }
+
+  handleHeldToolDock(tool, toolbar) {
+    const state = this.heldToolActionStates.get(toolbar.participantIndex);
+    if (state?.tool === tool) this.clearHeldToolAction(toolbar.participantIndex);
+    if (this.soundEffectsEnabled) this.sounds.playToolDock();
+  }
+
+  isDiscoveryPatchExposed(patch) {
+    const sourceToken = patch?.sourceToken;
+    if (!sourceToken?.domElement?.isConnected) return true;
+
+    const mineralElement = patch.element?.querySelector('.buried-mineral');
+    if (!mineralElement) return false;
+
+    const tokenRect = sourceToken.domElement.getBoundingClientRect();
+    const mineralRect = mineralElement.getBoundingClientRect();
+    const overlapWidth = Math.max(0, Math.min(tokenRect.right, mineralRect.right) - Math.max(tokenRect.left, mineralRect.left));
+    const overlapHeight = Math.max(0, Math.min(tokenRect.bottom, mineralRect.bottom) - Math.max(tokenRect.top, mineralRect.top));
+    const mineralArea = mineralRect.width * mineralRect.height;
+
+    if (mineralArea === 0) return false;
+    return (overlapWidth * overlapHeight) / mineralArea <= 0.15;
+  }
+
+  updateShovelAction(state) {
+    const { position } = state;
+    if (!position) return;
+    if (state.lastUprootedToken && Math.hypot(state.lastUprootedToken.x - position.x, state.lastUprootedToken.y - position.y) > 145) {
+      state.lastUprootedToken = null;
+    }
+
+    const discovery = this.discoveryPatches
+      .filter(patch => patch.hasGlimmer && !patch.revealed && patch.element?.isConnected && this.isDiscoveryPatchExposed(patch))
+      .map(patch => ({ patch, distance: Math.hypot(patch.x - position.x, patch.y - position.y) }))
+      .sort((a, b) => a.distance - b.distance)[0];
+    const hoveredDiscovery = discovery && discovery.distance < 86 ? discovery.patch : null;
+
+    if (hoveredDiscovery) {
+      if (state.hoveredDiscovery !== hoveredDiscovery) {
+        this.clearShovelTarget(state);
+        state.hoveredDiscovery = hoveredDiscovery;
+        state.shovelHoverStartedAt = Date.now();
+        hoveredDiscovery.element.classList.add('shovel-discovery-target', 'shovel-digging');
+        state.toolbar.heldToolElement?.classList.add('shovel-working');
+        if (this.soundEffectsEnabled) this.sounds.startDigging(state.toolbar.participantIndex);
+      }
+
+      const progress = Math.min(1, (Date.now() - state.shovelHoverStartedAt) / 920);
+      hoveredDiscovery.element.style.setProperty('--shovel-progress', String(progress));
+      if (progress >= 1) this.revealDiscovery(state, hoveredDiscovery);
+      return;
+    }
+
+    const candidates = this.tokens
+      .filter(token => !token.isChild && token.isRooted && token !== state.lastUprootedToken && token.domElement && !token.editing)
+      .map(token => ({ token, distance: Math.hypot(token.x - position.x, token.y - position.y) }))
+      .sort((a, b) => a.distance - b.distance);
+    const nearest = candidates[0];
+    const hoveredToken = nearest && nearest.distance < 104 ? nearest.token : null;
+
+    if (state.hoveredToken !== hoveredToken) {
+      this.clearShovelTarget(state);
+      state.hoveredToken = hoveredToken;
+      state.shovelHoverStartedAt = hoveredToken ? Date.now() : 0;
+      if (hoveredToken) {
+        hoveredToken.domElement.classList.add('tool-scoop-target', 'shovel-digging');
+        state.toolbar.heldToolElement?.classList.add('shovel-working');
+        if (this.soundEffectsEnabled) this.sounds.startDigging(state.toolbar.participantIndex);
+      }
+    }
+
+    if (!hoveredToken) {
+      return;
+    }
+
+    const progress = Math.min(1, (Date.now() - state.shovelHoverStartedAt) / 920);
+    hoveredToken.domElement.style.setProperty('--shovel-progress', String(progress));
+    if (progress >= 1) this.uprootIdeaToken(state, hoveredToken);
+  }
+
+  startShovel(toolbar) {
+    const participant = toolbar.participantIndex;
+    this.stopShovel(participant);
+    const tick = () => {
+      const state = this.heldToolActionStates.get(participant);
+      if (!state || state.tool !== 'move' || !toolbar.heldToolElement) return;
+      this.updateShovelAction(state);
+    };
+    this.shovelIntervals.set(participant, setInterval(tick, 50));
+  }
+
+  stopShovel(participant) {
+    const interval = this.shovelIntervals.get(participant);
+    if (interval) clearInterval(interval);
+    this.shovelIntervals.delete(participant);
+    const state = this.heldToolActionStates.get(participant);
+    if (state) this.clearShovelTarget(state);
+  }
+
+  clearShovelTarget(state) {
+    if (state?.toolbar) this.sounds.stopDigging(state.toolbar.participantIndex);
+    state.hoveredToken?.domElement?.classList.remove('tool-scoop-target');
+    state.hoveredToken?.domElement?.classList.remove('shovel-digging');
+    state.hoveredToken?.domElement?.style.removeProperty('--shovel-progress');
+    state.hoveredToken = null;
+    state.hoveredDiscovery?.element?.classList.remove('shovel-discovery-target', 'shovel-digging');
+    state.hoveredDiscovery?.element?.style.removeProperty('--shovel-progress');
+    state.hoveredDiscovery = null;
+    state.shovelHoverStartedAt = 0;
+    state.toolbar?.heldToolElement?.classList.remove('shovel-working');
+  }
+
+  uprootIdeaToken(state, token) {
+    token.setRooted(false, true);
+    token.selected = false;
+    token.updateStyle();
+    state.lastUprootedToken = token;
+    this.terrainBackground.disturbAt(token.x, token.y, token.id, {
+      width: token.baseWidth * token.scale,
+      height: token.baseHeight * token.scale,
+      rotation: token.rotation,
+      horizontalRadii: token.shapeProfile.horizontalRadii,
+      verticalRadii: token.shapeProfile.verticalRadii
+    });
+    this.createDiscoveryPatch(token, {
+      x: token.x,
+      y: token.y,
+      rotation: token.rotation,
+      width: token.baseWidth * token.scale,
+      height: token.baseHeight * token.scale
+    });
+    this.emitSoilParticles(token);
+    this.clearShovelTarget(state);
+    if (navigator.vibrate) navigator.vibrate([14, 28, 20]);
+    if (this.soundEffectsEnabled) this.sounds.playShovel();
+    this.lastActivityTime = Date.now();
+  }
+
+  rootIdeaToken(token) {
+    if (!token || token.isRooted || token.isChild || !token.domElement) return;
+    token.setRooted(true, true);
+    this.emitSoilParticles(token, true);
+    if (navigator.vibrate) navigator.vibrate(12);
+    if (this.soundEffectsEnabled) this.sounds.playPlant();
+    this.lastActivityTime = Date.now();
+    this.updateGrowthVisualization();
+  }
+
+  createDiscoveryPatch(token, origin) {
+    const canvas = document.getElementById('canvas');
+    if (!canvas || !token || !origin) return;
+
+    const id = this.discoveryPatchCounter++;
+    const hasGlimmer = id % 3 === 0;
+    const goldSequence = Math.floor(id / 3);
+    const goldAssetNumber = (goldSequence % 3) + 1;
+    const suggestion = this.getDiscoverySuggestion(goldSequence);
+    const patchRotation = origin.rotation + ((id % 5) - 2) * 1.5;
+    const insightShiftX = Math.max(123, Math.min(window.innerWidth - 123, origin.x)) - origin.x;
+    const element = document.createElement('div');
+    element.className = `discovery-patch${hasGlimmer ? ' has-glimmer' : ''}`;
+    element.style.left = `${origin.x}px`;
+    element.style.top = `${origin.y}px`;
+    element.style.width = `${Math.max(148, origin.width || 148)}px`;
+    element.style.height = `${Math.max(92, origin.height || 92)}px`;
+    element.style.rotate = `${patchRotation}deg`;
+    element.style.setProperty('--insight-shift-x', `${insightShiftX}px`);
+    element.style.setProperty('--insight-counter-rotation', `${-patchRotation}deg`);
+    element.style.setProperty('--gold-rotation', `${((goldSequence * 53) % 71) - 35}deg`);
+    element.style.setProperty('--gold-scale', `${0.82 + ((goldSequence * 17) % 14) / 100}`);
+    element.setAttribute('aria-label', hasGlimmer ? 'Omgewoelde aarde met een zachte gouden glinstering' : 'Omgewoelde aarde');
+    element.innerHTML = `
+      <span class="buried-mineral" aria-hidden="true">${hasGlimmer ? `<img src="/assets/farm/gold-${goldAssetNumber}.png" alt="">` : ''}</span>
+      <span class="discovery-sparkles" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="buried-insight" role="note" aria-live="polite" aria-hidden="true">
+        <span class="insight-text"></span>
+        <button class="insight-close" type="button" aria-label="Sluit suggestie">
+          <img src="/assets/farm/suggestion-close.svg" alt="">
+        </button>
+      </span>`;
+    element.querySelector('.insight-text').textContent = suggestion;
+    element.querySelector('.insight-close').addEventListener('click', (event) => {
+      event.stopPropagation();
+      element.classList.add('dismissed');
+      setTimeout(() => {
+        element.remove();
+        this.discoveryPatches = this.discoveryPatches.filter(candidate => candidate.id !== id);
+      }, 180);
+    });
+    canvas.appendChild(element);
+
+    const patch = { id, x: origin.x, y: origin.y, insightShiftX, hasGlimmer, suggestion, element, sourceToken: token, revealed: false };
+    this.discoveryPatches.push(patch);
+    if (this.discoveryPatches.length > 12) {
+      const oldest = this.discoveryPatches.shift();
+      oldest?.element?.remove();
+    }
+  }
+
+  getDiscoverySuggestion(seed) {
+    const suggestions = [
+      'Wat kun je volledig weglaten?',
+      'Wat gebeurt er als je het tegenovergestelde doet?',
+      'Wat als je dit extreem overdrijft?',
+      'Wat als je nog maar één handeling mag gebruiken?',
+      'Wat als dit zonder scherm moet werken?',
+      'Wat als je de volgorde volledig omdraait?',
+      'Wat als de gebruiker niets hoeft te doen?',
+      'Wat als dit alleen samen met iemand anders werkt?',
+      'Wat als je twee onderdelen samenvoegt die normaal losstaan?',
+      'Wat als je dit in een totaal andere omgeving gebruikt?',
+      'Wat als je het belangrijkste onderdeel juist onbelangrijk maakt?',
+      'Wat als je één regel bewust breekt?',
+      'Wat als dit tien keer groter of kleiner wordt?',
+      'Wat als het systeem reageert vóórdat de gebruiker iets doet?',
+      'Wat als je dit idee vanuit het tegenovergestelde perspectief bekijkt?'
+    ];
+    return suggestions[seed % suggestions.length];
+  }
+
+  revealDiscovery(state, discovery) {
+    if (!discovery || discovery.revealed) return;
+    discovery.revealed = true;
+    discovery.element.classList.add('revealed');
+    discovery.element.setAttribute('aria-label', 'Opengegraven provocatie');
+    discovery.element.querySelector('.buried-insight')?.setAttribute('aria-hidden', 'false');
+    this.emitDiscoveryParticles(discovery);
+    this.clearShovelTarget(state);
+    this.usedNudges.push('ontdekken');
+    this.nudgesClickedCount++;
+    this.lastActivityTime = Date.now();
+    this.updateGrowthVisualization();
+    if (navigator.vibrate) navigator.vibrate([16, 24, 28]);
+    if (this.soundEffectsEnabled) this.sounds.playGold();
+  }
+
+  emitDiscoveryParticles(discovery) {
+    const canvas = document.getElementById('canvas');
+    if (!canvas) return;
+    const particleCount = 18;
+    const cardHalfWidth = 121;
+    const cardHalfHeight = 53;
+    const cardCenterX = discovery.x + (discovery.insightShiftX || 0);
+
+    for (let index = 0; index < particleCount; index++) {
+      const particle = document.createElement('span');
+      const angle = (index / particleCount) * Math.PI * 2 + 0.12;
+      const directionX = Math.cos(angle);
+      const directionY = Math.sin(angle);
+      const edgeScale = 1 / Math.max(Math.abs(directionX) / cardHalfWidth, Math.abs(directionY) / cardHalfHeight);
+      const edgeX = directionX * edgeScale;
+      const edgeY = directionY * edgeScale;
+      const distance = 18 + (index % 4) * 7;
+      particle.className = index % 3 === 0 ? 'discovery-particle is-gold' : 'discovery-particle';
+      particle.style.left = `${cardCenterX + edgeX}px`;
+      particle.style.top = `${discovery.y + edgeY}px`;
+      particle.style.setProperty('--discovery-x', `${directionX * distance}px`);
+      particle.style.setProperty('--discovery-y', `${directionY * distance}px`);
+      particle.style.setProperty('--discovery-delay', `${index * 18}ms`);
+      canvas.appendChild(particle);
+      setTimeout(() => particle.remove(), 1250);
+    }
+  }
+
+  emitSoilParticles(token, settling = false) {
+    const canvas = document.getElementById('canvas');
+    if (!canvas || !token) return;
+    const width = token.domElement?.offsetWidth || token.baseWidth * token.scale;
+    const height = token.domElement?.offsetHeight || token.baseHeight * token.scale;
+    const rotation = token.rotation * Math.PI / 180;
+    const particleCount = 11;
+
+    for (let index = 0; index < particleCount; index++) {
+      const angle = (index / particleCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.24;
+      const localX = Math.cos(angle) * (width / 2 + 5);
+      const localY = Math.sin(angle) * (height / 2 + 5);
+      const edgeX = localX * Math.cos(rotation) - localY * Math.sin(rotation);
+      const edgeY = localX * Math.sin(rotation) + localY * Math.cos(rotation);
+      const edgeLength = Math.hypot(edgeX, edgeY) || 1;
+      const normalX = edgeX / edgeLength;
+      const normalY = edgeY / edgeLength;
+      const outwardDistance = 10 + Math.random() * 20;
+      const particle = document.createElement('span');
+      particle.className = `soil-particle${settling ? ' settling' : ''}`;
+      particle.style.left = `${token.x + edgeX}px`;
+      particle.style.top = `${token.y + edgeY}px`;
+      particle.style.setProperty('--soil-out-x', `${normalX * outwardDistance + (Math.random() - 0.5) * 7}px`);
+      particle.style.setProperty('--soil-out-y', `${normalY * outwardDistance + (settling ? 8 + Math.random() * 9 : -13 - Math.random() * 22)}px`);
+      particle.style.setProperty('--soil-in-x', `${-normalX * (7 + Math.random() * 8)}px`);
+      particle.style.setProperty('--soil-delay', `${index * 16}ms`);
+      canvas.appendChild(particle);
+      setTimeout(() => particle.remove(), 720);
+    }
+  }
+
+  startWatering(toolbar) {
+    const participant = toolbar.participantIndex;
+    this.stopWatering(participant);
+    const activeState = this.heldToolActionStates.get(participant);
+    if (!activeState?.isHeld) return;
+    if (this.soundEffectsEnabled) this.sounds.startWater(participant);
+    toolbar.heldToolElement?.classList.add('watering-active');
+    const tick = () => {
+      const state = this.heldToolActionStates.get(participant);
+      if (!state?.isHeld || state.tool !== 'connect' || !toolbar.heldToolElement) return;
+      this.emitWaterDrop(toolbar);
+      this.wetTerrainFromWateringCan(state, true);
+      this.updateWateringConnection(state);
+    };
+    tick();
+    this.wateringIntervals.set(participant, setInterval(tick, 115));
+  }
+
+  emitWaterDrop(toolbar) {
+    const position = toolbar.heldToolPosition;
+    const canvas = document.getElementById('canvas');
+    if (!position || !canvas || this.currentState !== 'tableSession') return;
+    const geometry = this.getWateringGeometry(toolbar, position);
+    const drop = document.createElement('img');
+    const fallDistance = 116 + Math.random() * 34;
+    const endSpread = 12 + fallDistance * 0.13;
+    const sidewaysJitter = (Math.random() - 0.5) * endSpread * 2;
+    const horizontalTravel = geometry.flow.x * (16 + Math.random() * 10) + sidewaysJitter;
+    const startX = geometry.outlet.x + (Math.random() - 0.5) * 3;
+    const startY = geometry.outlet.y + (Math.random() - 0.5) * 2;
+    const delay = Math.random() * 16;
+    const duration = 820 + Math.random() * 210;
+    drop.className = 'watering-drop';
+    drop.src = this.getWaterDropAsset();
+    drop.alt = '';
+    drop.draggable = false;
+    drop.dataset.wateringParticipant = String(toolbar.participantIndex);
+    drop.style.left = `${startX}px`;
+    drop.style.top = `${startY}px`;
+    drop.style.setProperty('--drop-size', `${14 + Math.random() * 6}px`);
+    drop.style.setProperty('--drop-rotation', `${(Math.random() - 0.5) * 18}deg`);
+    drop.style.setProperty('--drop-reflect', Math.random() < 0.5 ? '-1' : '1');
+    drop.style.setProperty('--drop-mid-x', `${horizontalTravel * (0.24 + Math.random() * 0.12)}px`);
+    drop.style.setProperty('--drop-mid-y', `${36 + Math.random() * 13}px`);
+    drop.style.setProperty('--drop-x', `${horizontalTravel}px`);
+    drop.style.setProperty('--drop-y', `${fallDistance}px`);
+    drop.style.setProperty('--drop-duration', `${duration}ms`);
+    drop.style.animationDelay = `${delay}ms`;
+    canvas.appendChild(drop);
+    setTimeout(() => {
+      if (!drop.isConnected) return;
+      this.emitWaterImpact(
+        canvas,
+        toolbar.participantIndex,
+        startX + horizontalTravel,
+        startY + fallDistance
+      );
+      drop.remove();
+    }, duration + delay - 20);
+  }
+
+  getWaterDropAsset() {
+    return `/assets/farm/driplets/driplet-${Math.floor(Math.random() * 6) + 1}.png`;
+  }
+
+  emitWaterImpact(canvas, participant, x, y) {
+    const ripple = document.createElement('span');
+    ripple.className = 'watering-impact-ripple';
+    ripple.dataset.wateringParticipant = String(participant);
+    ripple.style.left = `${x}px`;
+    ripple.style.top = `${y}px`;
+    ripple.style.setProperty('--ripple-rotation', `${(Math.random() - 0.5) * 18}deg`);
+    canvas.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 520);
+
+    const splashCount = 1 + Math.floor(Math.random() * 3);
+    for (let index = 0; index < splashCount; index++) {
+      const splash = document.createElement('img');
+      const angle = Math.PI * (1.08 + Math.random() * 0.84);
+      const distance = 8 + Math.random() * 15;
+      const impactX = Math.cos(angle) * distance;
+      const impactY = Math.sin(angle) * distance;
+      splash.className = 'watering-impact-drop';
+      splash.src = this.getWaterDropAsset();
+      splash.alt = '';
+      splash.draggable = false;
+      splash.dataset.wateringParticipant = String(participant);
+      splash.style.left = `${x}px`;
+      splash.style.top = `${y}px`;
+      splash.style.setProperty('--impact-size', `${8 + Math.random() * 6}px`);
+      splash.style.setProperty('--impact-mid-x', `${impactX * 0.46}px`);
+      splash.style.setProperty('--impact-mid-y', `${impactY * 0.7 - 9}px`);
+      splash.style.setProperty('--impact-x', `${impactX}px`);
+      splash.style.setProperty('--impact-y', `${impactY}px`);
+      splash.style.setProperty('--impact-rotation', `${(Math.random() - 0.5) * 70}deg`);
+      splash.style.setProperty('--impact-reflect', Math.random() < 0.5 ? '-1' : '1');
+      splash.style.animationDelay = `${index * 24}ms`;
+      canvas.appendChild(splash);
+      setTimeout(() => splash.remove(), 620 + index * 24);
+    }
+  }
+
+  getWateringGeometry(toolbar, position = toolbar.heldToolPosition) {
+    const baseRotations = { top: 180, bottom: 0, left: 90, right: -90 };
+    const rotation = ((baseRotations[toolbar.side] || 0) - 45) * Math.PI / 180;
+    const rotateOffset = (x, y) => ({
+      x: x * Math.cos(rotation) - y * Math.sin(rotation),
+      y: x * Math.sin(rotation) + y * Math.cos(rotation)
+    });
+    const spoutOffset = rotateOffset(-29, -7);
+    const flow = rotateOffset(-1, -0.15);
+    const flowLength = Math.hypot(flow.x, flow.y) || 1;
+    const normalizedFlow = { x: flow.x / flowLength, y: flow.y / flowLength };
+    const outlet = {
+      x: position.x + spoutOffset.x,
+      y: position.y + spoutOffset.y
+    };
+    return {
+      outlet,
+      flow: normalizedFlow,
+      landing: {
+        x: outlet.x + normalizedFlow.x * 21,
+        y: outlet.y + 132
+      }
+    };
+  }
+
+  wetTerrainFromWateringCan(state, force = false) {
+    if (!state.position || this.currentState !== 'tableSession') return;
+    const now = performance.now();
+    const target = this.getWateringGeometry(state.toolbar, state.position).landing;
+    const previous = state.lastTerrainWetPosition;
+    const distance = previous ? Math.hypot(target.x - previous.x, target.y - previous.y) : Infinity;
+    if (!force && (now - state.lastTerrainWetAt < 55 || distance < 14)) return;
+    this.terrainBackground.wetAt(target.x, target.y, force ? 0.11 : 0.075);
+    state.lastTerrainWetAt = now;
+    state.lastTerrainWetPosition = target;
+  }
+
+  updateWateringConnection(state) {
+    if (!state.position || state.merging) return;
+    const candidates = this.tokens.filter(token => !token.isChild && !token.isDragging && token.domElement);
+    let bestPair = null;
+    let bestScore = Infinity;
+
+    for (let i = 0; i < candidates.length; i++) {
+      for (let j = i + 1; j < candidates.length; j++) {
+        const tokenA = candidates[i];
+        const tokenB = candidates[j];
+        if (tokenA.type === 'group' && tokenB.type === 'group') continue;
+        const tokenDistance = Math.hypot(tokenA.x - tokenB.x, tokenA.y - tokenB.y);
+        if (tokenDistance > 520) continue;
+        const distanceA = Math.hypot(tokenA.x - state.position.x, tokenA.y - state.position.y);
+        const distanceB = Math.hypot(tokenB.x - state.position.x, tokenB.y - state.position.y);
+        const midpointX = (tokenA.x + tokenB.x) / 2;
+        const midpointY = (tokenA.y + tokenB.y) / 2;
+        const midpointDistance = Math.hypot(midpointX - state.position.x, midpointY - state.position.y);
+        if (distanceA > 260 || distanceB > 260 || midpointDistance > 135) continue;
+        const score = distanceA + distanceB + midpointDistance * 1.6;
+        if (score < bestScore) {
+          bestScore = score;
+          bestPair = { tokenA, tokenB };
+        }
+      }
+    }
+
+    if (!bestPair) {
+      this.clearWateringPair(state);
+      return;
+    }
+
+    const pairKey = [bestPair.tokenA.id, bestPair.tokenB.id].sort((a, b) => a - b).join(':');
+    if (state.wateringPairKey !== pairKey) {
+      this.clearWateringPair(state);
+      state.wateringPair = bestPair;
+      state.wateringPairKey = pairKey;
+      state.wateringStartedAt = Date.now();
+      const startA = { x: bestPair.tokenA.x, y: bestPair.tokenA.y, rotation: bestPair.tokenA.rotation };
+      const startB = { x: bestPair.tokenB.x, y: bestPair.tokenB.y, rotation: bestPair.tokenB.rotation };
+      const initialDx = startB.x - startA.x;
+      const initialDy = startB.y - startA.y;
+      const initialDistance = Math.max(1, Math.hypot(initialDx, initialDy));
+      const unitX = initialDx / initialDistance;
+      const unitY = initialDy / initialDistance;
+      const desiredGap = 136;
+      const midpoint = { x: (startA.x + startB.x) / 2, y: (startA.y + startB.y) / 2 };
+      const targetA = bestPair.tokenA.type === 'group'
+        ? { x: startA.x, y: startA.y }
+        : bestPair.tokenB.type === 'group'
+          ? { x: startB.x - unitX * desiredGap, y: startB.y - unitY * desiredGap }
+          : { x: midpoint.x - unitX * desiredGap / 2, y: midpoint.y - unitY * desiredGap / 2 };
+      const targetB = bestPair.tokenB.type === 'group'
+        ? { x: startB.x, y: startB.y }
+        : bestPair.tokenA.type === 'group'
+          ? { x: startA.x + unitX * desiredGap, y: startA.y + unitY * desiredGap }
+          : { x: midpoint.x + unitX * desiredGap / 2, y: midpoint.y + unitY * desiredGap / 2 };
+      state.wateringPairMotion = {
+        startA,
+        startB,
+        targetA,
+        targetB,
+        normalX: -unitY,
+        normalY: unitX,
+        curve: Math.min(44, Math.max(16, (initialDistance - desiredGap) * 0.16)),
+        direction: (bestPair.tokenA.id + bestPair.tokenB.id) % 2 === 0 ? 1 : -1
+      };
+      bestPair.tokenA.domElement.classList.add('watering-grow-target');
+      bestPair.tokenB.domElement.classList.add('watering-grow-target');
+      bestPair.tokenA.domElement.classList.add('watering-organic-motion');
+      bestPair.tokenB.domElement.classList.add('watering-organic-motion');
+      if (bestPair.tokenA.type === 'group') bestPair.tokenA.domElement.classList.add('watering-group-target');
+      if (bestPair.tokenB.type === 'group') bestPair.tokenB.domElement.classList.add('watering-group-target');
+    }
+
+    const { tokenA, tokenB } = state.wateringPair;
+    const elapsed = Date.now() - state.wateringStartedAt;
+    const progress = Math.min(1, elapsed / 1850);
+    const easedProgress = progress * progress * (3 - 2 * progress);
+    const motion = state.wateringPairMotion;
+    if (motion) {
+      const arc = Math.sin(Math.PI * easedProgress) * motion.curve * motion.direction;
+      const settleWobble = Math.sin(easedProgress * Math.PI * 4) * (1 - easedProgress) * 1.4;
+      if (tokenA.type !== 'group') {
+        tokenA.x = motion.startA.x + (motion.targetA.x - motion.startA.x) * easedProgress + motion.normalX * arc;
+        tokenA.y = motion.startA.y + (motion.targetA.y - motion.startA.y) * easedProgress + motion.normalY * arc;
+        tokenA.rotation = motion.startA.rotation + Math.sin(Math.PI * easedProgress) * motion.direction * 4.5 + settleWobble;
+        tokenA.applyBoundaries();
+        tokenA.updateStyle();
+      }
+      if (tokenB.type !== 'group') {
+        tokenB.x = motion.startB.x + (motion.targetB.x - motion.startB.x) * easedProgress - motion.normalX * arc;
+        tokenB.y = motion.startB.y + (motion.targetB.y - motion.startB.y) * easedProgress - motion.normalY * arc;
+        tokenB.rotation = motion.startB.rotation - Math.sin(Math.PI * easedProgress) * motion.direction * 4.5 - settleWobble;
+        tokenB.applyBoundaries();
+        tokenB.updateStyle();
+      }
+    }
+    const dx = tokenB.x - tokenA.x;
+    const dy = tokenB.y - tokenA.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    if (progress >= 1 || (distance < 145 && progress >= 0.72)) {
+      state.merging = true;
+      this.clearWateringPair(state);
+      const group = tokenA.type === 'group' ? tokenA : (tokenB.type === 'group' ? tokenB : null);
+      const idea = group === tokenA ? tokenB : tokenA;
+      const finishConnection = () => {
+        setTimeout(() => {
+          state.merging = false;
+        }, 420);
+      };
+      if (group) {
+        this.addTokenToGroup(idea, group, true);
+        finishConnection();
+      } else {
+        this.mergeTokensToGroup(tokenA, tokenB, true).finally(finishConnection);
+      }
+    }
+  }
+
+  clearWateringPair(state) {
+    state.wateringPair?.tokenA?.domElement?.classList.remove('watering-grow-target');
+    state.wateringPair?.tokenB?.domElement?.classList.remove('watering-grow-target');
+    state.wateringPair?.tokenA?.domElement?.classList.remove('watering-group-target');
+    state.wateringPair?.tokenB?.domElement?.classList.remove('watering-group-target');
+    state.wateringPair?.tokenA?.domElement?.classList.remove('watering-organic-motion');
+    state.wateringPair?.tokenB?.domElement?.classList.remove('watering-organic-motion');
+    state.wateringPair = null;
+    state.wateringPairKey = null;
+    state.wateringPairMotion = null;
+    state.wateringStartedAt = 0;
+  }
+
+  stopWatering(participant) {
+    this.sounds.stopWater(participant);
+    const interval = this.wateringIntervals.get(participant);
+    if (interval) clearInterval(interval);
+    this.wateringIntervals.delete(participant);
+    const state = this.heldToolActionStates.get(participant);
+    if (state) {
+      state.toolbar?.heldToolElement?.classList.remove('watering-active');
+      this.clearWateringPair(state);
+    }
+    document.querySelectorAll(`[data-watering-participant="${participant}"]`).forEach(drop => drop.remove());
+  }
+
+  clearHeldToolAction(participant) {
+    const state = this.heldToolActionStates.get(participant);
+    if (state) {
+      this.clearShovelTarget(state);
+      this.clearWateringPair(state);
+    }
+    this.stopShovel(participant);
+    this.stopWatering(participant);
+    this.heldToolActionStates.delete(participant);
+  }
+
+  plantSeedFromBag(toolbar, position) {
+    if (!position || toolbar.heldTool !== 'input') return;
+    const canvas = document.getElementById('canvas');
+    if (!canvas) return;
+    const edgePadding = 38;
+    const canvasRect = canvas.getBoundingClientRect();
+    const targetX = Math.max(edgePadding, Math.min(canvasRect.width - edgePadding, position.x));
+    const targetY = Math.max(edgePadding, Math.min(canvasRect.height - edgePadding, position.y));
+
+    this.createPendingSeed('round', toolbar, {
+      originX: targetX,
+      originY: targetY,
+      targetX,
+      targetY,
+      autoPlace: true,
+      fromDrag: true
+    });
+
+    window.setTimeout(() => {
+      if (toolbar.heldTool === 'input') toolbar.dockHeldTool();
+    }, 60);
+  }
+
+  createPendingSeed(seedType, toolbar, placement = null) {
+    this.cancelPendingSeed(toolbar);
+    const side = toolbar.side;
+    const { x: toolbarX, y: toolbarY } = this.getToolbarCenter(toolbar.heldToolElement || toolbar.domElement);
+    let spawnX = toolbarX;
+    let spawnY = toolbarY;
     let rotation = 0;
-    
-    // Offset spawn position inwards and rotate to face the edge user
-    const offset = 160;
+    const offset = 112;
     if (side === 'top') {
-      spawnY = btnY + offset;
+      spawnY = toolbarY + offset;
       rotation = 180;
     } else if (side === 'bottom') {
-      spawnY = btnY - offset;
+      spawnY = toolbarY - offset;
       rotation = 0;
     } else if (side === 'left') {
-      spawnX = btnX + offset;
+      spawnX = toolbarX + offset;
       rotation = 90;
     } else if (side === 'right') {
-      spawnX = btnX - offset;
+      spawnX = toolbarX - offset;
       rotation = 270;
     }
-    
-    // Dismiss empty state welcome text when user creates a new token
+    if (placement) {
+      spawnX = placement.targetX;
+      spawnY = placement.targetY;
+    }
+
     this.dismissEmptyState();
-    
-    const inputCardId = this.tokenIdCounter++;
-    new InputCard(
-      inputCardId,
-      btnX,
-      btnY,
+
+    const pendingElement = document.createElement('div');
+    const launchX = (placement?.originX ?? toolbarX) - spawnX;
+    const launchY = (placement?.originY ?? toolbarY) - spawnY;
+    const launchDistance = Math.hypot(launchX, launchY) || 1;
+    const arcDirection = toolbar.participantIndex % 2 === 0 ? -1 : 1;
+    const arcX = (-launchY / launchDistance) * 14 * arcDirection;
+    const arcY = (launchX / launchDistance) * 14 * arcDirection;
+    const arrivalClass = placement?.fromDrag ? 'settling-from-drag' : 'launching-from-bag';
+    pendingElement.className = `pending-seed-token seed-${seedType} ${arrivalClass}`;
+    pendingElement.style.left = `${spawnX}px`;
+    pendingElement.style.top = `${spawnY}px`;
+    pendingElement.style.rotate = `${rotation}deg`;
+    pendingElement.style.setProperty('--seed-launch-x', `${launchX}px`);
+    pendingElement.style.setProperty('--seed-launch-y', `${launchY}px`);
+    pendingElement.style.setProperty('--seed-launch-mid-x', `${launchX * 0.48 + arcX}px`);
+    pendingElement.style.setProperty('--seed-launch-mid-y', `${launchY * 0.48 + arcY}px`);
+    pendingElement.style.setProperty('--seed-launch-start-rotation', `${rotation - 32}deg`);
+    pendingElement.style.setProperty('--seed-launch-end-rotation', `${rotation}deg`);
+    pendingElement.setAttribute('role', 'button');
+    pendingElement.setAttribute('tabindex', '0');
+    pendingElement.setAttribute('aria-label', 'Sleep dit zaadje naar een plek op tafel');
+    pendingElement.innerHTML = '<span class="pending-seed-shell"><i></i></span>';
+    document.getElementById('token-container').appendChild(pendingElement);
+
+    toolbar.hideContext();
+    const pendingSeed = {
+      seedType,
+      toolbar,
       spawnX,
       spawnY,
       rotation,
-      btn,
-      (text) => {
-        const tokenId = this.tokenIdCounter++;
-        const token = new Token(tokenId, spawnX, spawnY, rotation, text, (t, type) => this.handleTokenStateChange(t, type));
-        token.applyBoundaries();
-        token.updateStyle();
-        this.tokens.push(token);
-        this.lastActivityTime = Date.now();
-        this.updateAISuggestions();
-        if (this.soundEffectsEnabled) {
-          this.sounds.playPlant();
-        }
-      },
-      () => {
-        // Cancel - do nothing
+      element: pendingElement,
+      pointerId: null,
+      dragOffset: { x: 0, y: 0 },
+      dragOrigin: null,
+      placed: false,
+      autoPlace: Boolean(placement?.autoPlace),
+      hintTimer: null,
+      inputCard: null
+    };
+    this.pendingSeeds.set(toolbar.participantIndex, pendingSeed);
+    pendingElement.addEventListener('pointerdown', (event) => this.startPendingSeedDrag(pendingSeed, event));
+    pendingElement.addEventListener('pointermove', (event) => this.movePendingSeed(pendingSeed, event));
+    pendingElement.addEventListener('pointerup', (event) => this.endPendingSeedDrag(pendingSeed, event));
+    pendingElement.addEventListener('pointercancel', (event) => this.endPendingSeedDrag(pendingSeed, event));
+    pendingElement.addEventListener('keydown', (event) => {
+      if ((event.key === 'Enter' || event.key === ' ') && !pendingSeed.placed) {
+        event.preventDefault();
+        this.finishPendingSeedPlacement(pendingSeed);
       }
+    });
+    pendingElement.addEventListener('animationend', () => {
+      pendingElement.classList.remove('launching-from-bag', 'settling-from-drag');
+      if (pendingSeed.autoPlace) this.finishPendingSeedPlacement(pendingSeed);
+    }, { once: true });
+    if (!pendingSeed.autoPlace) {
+      pendingSeed.hintTimer = setTimeout(() => {
+        if (this.pendingSeeds.get(toolbar.participantIndex) === pendingSeed && !pendingSeed.placed) {
+          toolbar.showSeedPlacementHint();
+        }
+        pendingSeed.hintTimer = null;
+      }, 680);
+    }
+  }
+
+  startPendingSeedDrag(pendingSeed, event) {
+    if (pendingSeed.placed || this.pendingSeeds.get(pendingSeed.toolbar.participantIndex) !== pendingSeed) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = pendingSeed.element.getBoundingClientRect();
+    pendingSeed.pointerId = event.pointerId;
+    pendingSeed.dragOrigin = { x: event.clientX, y: event.clientY };
+    pendingSeed.dragOffset = {
+      x: event.clientX - (rect.left + rect.width / 2),
+      y: event.clientY - (rect.top + rect.height / 2)
+    };
+    pendingSeed.element.setPointerCapture?.(event.pointerId);
+    pendingSeed.element.classList.add('dragging');
+  }
+
+  movePendingSeed(pendingSeed, event) {
+    if (pendingSeed.placed || event.pointerId !== pendingSeed.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const canvasRect = document.getElementById('canvas').getBoundingClientRect();
+    const radius = pendingSeed.element.offsetWidth / 2;
+    pendingSeed.spawnX = Math.max(radius, Math.min(canvasRect.width - radius, event.clientX - canvasRect.left - pendingSeed.dragOffset.x));
+    pendingSeed.spawnY = Math.max(radius, Math.min(canvasRect.height - radius, event.clientY - canvasRect.top - pendingSeed.dragOffset.y));
+    pendingSeed.element.style.left = `${pendingSeed.spawnX}px`;
+    pendingSeed.element.style.top = `${pendingSeed.spawnY}px`;
+  }
+
+  endPendingSeedDrag(pendingSeed, event) {
+    if (pendingSeed.placed || event.pointerId !== pendingSeed.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    pendingSeed.element.releasePointerCapture?.(event.pointerId);
+    pendingSeed.element.classList.remove('dragging');
+    pendingSeed.pointerId = null;
+    pendingSeed.dragOrigin = null;
+    this.finishPendingSeedPlacement(pendingSeed);
+  }
+
+  finishPendingSeedPlacement(pendingSeed) {
+    if (pendingSeed.placed || this.pendingSeeds.get(pendingSeed.toolbar.participantIndex) !== pendingSeed) return;
+    pendingSeed.placed = true;
+    pendingSeed.element.classList.remove('dragging');
+    pendingSeed.element.classList.add('placed');
+    pendingSeed.element.setAttribute('tabindex', '-1');
+    pendingSeed.element.setAttribute('aria-label', 'Geplaatst zaadje, voer je idee in');
+    pendingSeed.toolbar.hideContext();
+
+    const cardHalfWidth = 175;
+    const cardHalfHeight = 143;
+    const edgeGap = 18;
+    const canvas = document.getElementById('canvas');
+    const canvasRect = canvas.getBoundingClientRect();
+    const toolbarShell = pendingSeed.toolbar.domElement.querySelector('.toolbar-shell') || pendingSeed.toolbar.domElement;
+    const toolbarRect = toolbarShell.getBoundingClientRect();
+    const keyboardOriginX = toolbarRect.left + toolbarRect.width / 2 - canvasRect.left;
+    const keyboardOriginY = toolbarRect.top + toolbarRect.height / 2 - canvasRect.top;
+    let targetX = keyboardOriginX;
+    let targetY = keyboardOriginY;
+
+    if (pendingSeed.toolbar.side === 'bottom') {
+      targetY = toolbarRect.top - canvasRect.top - cardHalfHeight - edgeGap;
+    } else if (pendingSeed.toolbar.side === 'top') {
+      targetY = toolbarRect.bottom - canvasRect.top + cardHalfHeight + edgeGap;
+    } else if (pendingSeed.toolbar.side === 'left') {
+      targetX = toolbarRect.right - canvasRect.left + cardHalfWidth + edgeGap;
+    } else if (pendingSeed.toolbar.side === 'right') {
+      targetX = toolbarRect.left - canvasRect.left - cardHalfWidth - edgeGap;
+    }
+
+    targetX = Math.max(cardHalfWidth + 16, Math.min(canvasRect.width - cardHalfWidth - 16, targetX));
+    targetY = Math.max(cardHalfHeight + 16, Math.min(canvasRect.height - cardHalfHeight - 16, targetY));
+
+    pendingSeed.inputCard = new InputCard(
+      this.tokenIdCounter++,
+      keyboardOriginX,
+      keyboardOriginY,
+      targetX,
+      targetY,
+      pendingSeed.rotation,
+      null,
+      (text) => this.confirmPendingSeed(pendingSeed.toolbar, text),
+      () => this.cancelPendingSeed(pendingSeed.toolbar),
+      null,
+      { originKind: 'toolbar' }
     );
+  }
+
+  confirmPendingSeed(toolbar, text) {
+    const pendingSeed = this.pendingSeeds.get(toolbar.participantIndex);
+    if (!pendingSeed) return;
+    const { spawnX, spawnY, rotation } = pendingSeed;
+    pendingSeed.element.remove();
+    this.pendingSeeds.delete(toolbar.participantIndex);
+
+    const tokenId = this.tokenIdCounter++;
+    const token = new Token(tokenId, spawnX, spawnY, rotation, text, (t, type, event) => this.handleTokenStateChange(t, type, event));
+    token.applyBoundaries();
+    token.updateStyle();
+    this.tokens.push(token);
+    toolbar.hideContext();
+    this.lastActivityTime = Date.now();
+    this.updateAISuggestions();
+    this.updateGrowthVisualization();
+    if (this.soundEffectsEnabled) this.sounds.playPlant();
+  }
+
+  cancelPendingSeed(toolbar) {
+    if (!toolbar) return;
+    const pendingSeed = this.pendingSeeds.get(toolbar.participantIndex);
+    if (!pendingSeed) return;
+    const { element, hintTimer, inputCard } = pendingSeed;
+    if (hintTimer) clearTimeout(hintTimer);
+    if (inputCard?.domElement && !inputCard.domElement.classList.contains('destroying')) {
+      inputCard.onConfirm = () => {};
+      inputCard.onCancel = () => {};
+      inputCard.destroy(false);
+    }
+    element.remove();
+    this.pendingSeeds.delete(toolbar.participantIndex);
+    toolbar.hideContext();
+  }
+
+  cancelAllPendingSeeds() {
+    [...this.pendingSeeds.values()].forEach(({ element, inputCard }) => {
+      if (inputCard?.domElement && !inputCard.domElement.classList.contains('destroying')) {
+        inputCard.onConfirm = () => {};
+        inputCard.onCancel = () => {};
+        inputCard.destroy(false);
+      }
+      element.remove();
+    });
+    this.pendingSeeds.clear();
   }
   
   setupBackgroundDeselect() {
@@ -562,8 +1464,22 @@ class CanvasManager {
     return new URLSearchParams(window.location.search).get('session') || 'mobus-live';
   }
 
+  getWallSyncStorageKey() {
+    return `mobus-wall-state:${this.wallSyncSessionId}`;
+  }
+
   emitWallEvent(type, data = null, immediate = false) {
     const event = { type, data, sentAt: Date.now() };
+    // Keep the latest garden snapshot available to wall tabs opened after this event.
+    // BroadcastChannel only reaches tabs that are already listening.
+    try {
+      localStorage.setItem(this.getWallSyncStorageKey(), JSON.stringify(event));
+    } catch (error) {
+      if (!this.wallStorageUnavailableNoted) {
+        console.info('Persistent local wall sync is unavailable; using live tab sync only.', error);
+        this.wallStorageUnavailableNoted = true;
+      }
+    }
     if (this.broadcastChannel) {
       this.broadcastChannel.postMessage(event);
     }
@@ -571,6 +1487,7 @@ class CanvasManager {
   }
 
   postWallEvent(event, immediate = false) {
+    if (['localhost', '127.0.0.1'].includes(window.location.hostname)) return;
     if (!immediate && Date.now() - (this.lastWallSyncAt || 0) < 500) return;
     this.lastWallSyncAt = Date.now();
 
@@ -593,10 +1510,14 @@ class CanvasManager {
     this.wallSyncSessionId = this.getWallSyncSessionId();
     this.lastWallSyncAt = 0;
     this.wallSyncOfflineNoted = false;
+    this.wallStorageUnavailableNoted = false;
 
     // Establish BroadcastChannel for local synchronization
     try {
       this.broadcastChannel = new BroadcastChannel('mobus-session');
+      this.broadcastChannel.addEventListener('message', (event) => {
+        if (event.data?.type === 'request-state') this.updateGrowthVisualization();
+      });
     } catch (error) {
       this.broadcastChannel = null;
       console.info('Local wall BroadcastChannel unavailable; live sync will still be attempted.', error);
@@ -608,7 +1529,7 @@ class CanvasManager {
     this.finishBtn = document.getElementById('btn-finish-session');
     if (this.finishBtn) {
       this.finishBtn.addEventListener('click', () => {
-        this.transitionTo('sessionSummary');
+        this.enterHarvestMarket();
       });
     }
 
@@ -618,6 +1539,7 @@ class CanvasManager {
     });
 
     document.getElementById('card-growth-experience').addEventListener('click', () => {
+      if (this.soundEffectsEnabled) this.sounds.playUiTap();
       this.syncSessionSetupForm();
       this.transitionTo('sessionSetup');
     });
@@ -664,6 +1586,10 @@ class CanvasManager {
     if (setupStartBtn) {
       setupStartBtn.addEventListener('click', () => {
         if (this.applySessionSetup()) {
+          if (this.soundEffectsEnabled) {
+            this.sounds.startAmbient();
+            this.sounds.playStart();
+          }
           this.transitionTo('tableSession');
         }
       });
@@ -691,6 +1617,11 @@ class CanvasManager {
         e.stopPropagation();
         resetSettingsView();
         this.setParticipantCount(this.participantCount);
+        const harvestLocked = this.harvestMarket.active || this.harvestMarket.complete;
+        if (settingsParticipantsMinus) settingsParticipantsMinus.disabled = harvestLocked;
+        if (settingsParticipantsPlus) settingsParticipantsPlus.disabled = harvestLocked;
+        const finishLabel = settingsFinishBtn?.querySelector('span');
+        if (finishLabel) finishLabel.textContent = harvestLocked ? 'Terug naar Oogstmarkt' : 'Oogsten';
         settingsPanel.classList.add('visible');
       });
     }
@@ -708,7 +1639,7 @@ class CanvasManager {
         e.stopPropagation();
         settingsPanel.classList.remove('visible');
         resetSettingsView();
-        this.transitionTo('sessionSummary');
+        this.enterHarvestMarket();
       });
     }
 
@@ -748,12 +1679,21 @@ class CanvasManager {
     if (toggleSound) {
       toggleSound.addEventListener('change', (e) => {
         this.soundEffectsEnabled = e.target.checked;
+        if (!this.soundEffectsEnabled) {
+          this.sounds.stopAllWater();
+          this.sounds.stopAllDigging();
+          this.sounds.stopAmbient();
+        } else {
+          this.sounds.startAmbient();
+          this.sounds.playUiTap();
+        }
         this.showNudgeFeedback(this.soundEffectsEnabled ? "Geluidsfeedback aan" : "Geluidsfeedback uit");
       });
     }
 
     document.getElementById('btn-annuleren').addEventListener('click', () => {
-      this.transitionTo('tableSession');
+      this.resetSession();
+      this.transitionTo('welcome');
     });
 
     document.getElementById('btn-afronden').addEventListener('click', () => {
@@ -810,7 +1750,7 @@ class CanvasManager {
     });
 
     if (this.currentState === 'tableSession') {
-      this.configureParticipantEdgeButtons(this.participantCount);
+      this.configureParticipantToolbars(this.participantCount);
     }
   }
 
@@ -871,7 +1811,7 @@ class CanvasManager {
       settingsSoundToggle.checked = this.soundEffectsEnabled;
     }
 
-    this.configureParticipantEdgeButtons(this.participantCount);
+    this.configureParticipantToolbars(this.participantCount);
     this.updateSessionTitle();
     return true;
   }
@@ -888,7 +1828,31 @@ class CanvasManager {
     }
   }
 
+  enterHarvestMarket() {
+    if (this.harvestMarket.active || this.harvestMarket.complete) return;
+
+    this.cancelAllPendingSeeds();
+    this.toolbars.forEach(toolbar => toolbar.returnHeldTool());
+    [...this.heldToolActionStates.keys()].forEach(participant => this.clearHeldToolAction(participant));
+    this.tokens.forEach(token => {
+      if (token.type === 'group' && token.expanded) token.collapse();
+      if (token.selected) {
+        token.selected = false;
+        token.updateStyle();
+      }
+    });
+    this.tokenSelectedTime = {};
+    this.clearProximityPreview();
+    this.hideAISuggestion(true);
+    if (this.emptyStateOverlay) this.emptyStateOverlay.classList.add('hidden');
+    this.currentState = 'harvestMarket';
+    this.harvestMarket.enter();
+    this.lastActivityTime = Date.now();
+    this.updateGrowthVisualization();
+  }
+
   transitionTo(state) {
+    if (state === 'sessionSummary' && !this.harvestMarket.complete) return;
     this.currentState = state;
 
     // Get all screen elements
@@ -912,6 +1876,8 @@ class CanvasManager {
     if (state === 'tableSession') {
       this.screensContainer.classList.remove('dimmed');
       this.canvasElement.classList.add('active');
+      if (this.soundEffectsEnabled) this.sounds.startAmbient();
+      this.updateCanvasToolState();
       if (this.finishBtn) this.finishBtn.classList.add('visible');
       
       // If entering tabletop playground, spawn default tokens if empty
@@ -921,6 +1887,8 @@ class CanvasManager {
       }
       this.updateGrowthVisualization();
     } else {
+      this.cancelAllPendingSeeds();
+      this.toolbars.forEach(toolbar => toolbar.returnHeldTool());
       this.screensContainer.classList.add('dimmed');
       this.canvasElement.classList.remove('active');
       if (this.finishBtn) this.finishBtn.classList.remove('visible');
@@ -966,7 +1934,7 @@ class CanvasManager {
     const input = document.getElementById('email-input');
     const error = document.getElementById('email-error');
     const sendBtn = document.getElementById('btn-email-send');
-    const success = document.getElementById('email-success');
+    const skipBtn = document.getElementById('btn-email-skip');
 
     // Reset state
     input.value = '';
@@ -975,8 +1943,9 @@ class CanvasManager {
     sendBtn.classList.remove('loading');
     sendBtn.querySelector('span').textContent = 'Versturen';
     sendBtn.disabled = false;
-    success.classList.remove('visible');
-    success.textContent = '';
+    skipBtn.disabled = false;
+    input.disabled = false;
+    modal.removeAttribute('aria-busy');
 
     modal.classList.add('visible');
     setTimeout(() => input.focus(), 350);
@@ -990,7 +1959,8 @@ class CanvasManager {
     const input = document.getElementById('email-input');
     const error = document.getElementById('email-error');
     const sendBtn = document.getElementById('btn-email-send');
-    const success = document.getElementById('email-success');
+    const skipBtn = document.getElementById('btn-email-skip');
+    const modal = document.getElementById('email-modal');
     const email = input.value.trim();
 
     // Validate
@@ -1001,10 +1971,15 @@ class CanvasManager {
       return;
     }
 
+    if (this.soundEffectsEnabled) this.sounds.playSend();
+
     // Loading state
     sendBtn.classList.add('loading');
-    sendBtn.querySelector('span').textContent = 'Versturen\u2026';
+    sendBtn.querySelector('span').textContent = 'Oogst versturen\u2026';
     sendBtn.disabled = true;
+    skipBtn.disabled = true;
+    input.disabled = true;
+    modal.setAttribute('aria-busy', 'true');
 
     // Simulate send delay
     setTimeout(() => {
@@ -1055,25 +2030,10 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       console.log('Session result:', sessionResult);
       console.log(emailReport);
 
-      // Show success
-      success.textContent = `Resultaten verzonden naar ${email}`;
-      success.classList.add('visible');
-      sendBtn.style.display = 'none';
-      input.style.display = 'none';
-      document.getElementById('btn-email-skip').style.display = 'none';
-      document.querySelector('.email-input-wrapper').style.display = 'none';
-
-      // After delay, go to end screen
-      setTimeout(() => {
-        this.hideEmailModal();
-        // Restore hidden elements for next use
-        sendBtn.style.display = '';
-        input.style.display = '';
-        document.getElementById('btn-email-skip').style.display = '';
-        document.querySelector('.email-input-wrapper').style.display = '';
-        this.transitionTo('endSession');
-      }, 1800);
-    }, 800);
+      this.hideEmailModal();
+      if (this.soundEffectsEnabled) this.sounds.playSuccess();
+      this.transitionTo('endSession');
+    }, 1100);
   }
 
   buildSessionResult(email) {
@@ -1118,9 +2078,23 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     document.getElementById('stat-connections-count').textContent = this.createdConnections.length;
     document.getElementById('stat-nudges-count').textContent = this.usedNudges.length;
 
-    // Reset session title hidden input
+    const placedStickerCount = this.harvestMarket.getSnapshot().stickers.length;
+    const stickerCountElement = document.getElementById('harvest-summary-sticker-count');
+    if (stickerCountElement) stickerCountElement.textContent = String(placedStickerCount);
+
+    const ideaCountElement = document.getElementById('harvest-summary-idea-count');
+    if (ideaCountElement) ideaCountElement.textContent = String(totalIdeasCount);
+
+    const participantCountElement = document.getElementById('harvest-summary-participant-count');
+    if (participantCountElement) participantCountElement.textContent = String(this.participantCount);
+
+    // Keep the session name available for the mail report.
     const dateStr = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-    document.getElementById('summary-session-title').value = `Wachten als creatieve pauze - ${dateStr}`;
+    document.getElementById('summary-session-title').value = `${this.sessionGoal} - ${dateStr}`;
+    const dateElement = document.getElementById('harvest-summary-date');
+    if (dateElement) dateElement.textContent = dateStr;
+
+    this.renderHarvestOverview();
 
     // Highlight 1: Sterkste kluit
     const strongestClusterEl = document.getElementById('highlight-strongest-cluster');
@@ -1229,6 +2203,69 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
 
     // Render SVG infographic network
     this.renderInfographicSVG();
+  }
+
+  renderHarvestOverview() {
+    const container = document.getElementById('harvest-overview-results');
+    if (!container) return;
+
+    container.replaceChildren();
+    const votesByToken = new Map();
+    this.harvestMarket.getSnapshot().stickers.forEach(sticker => {
+      const voters = votesByToken.get(sticker.tokenId) || [];
+      voters.push(sticker.participant);
+      votesByToken.set(sticker.tokenId, voters);
+    });
+
+    const rankedTokens = this.tokens
+      .filter(token => !token.isChild && token.domElement?.isConnected)
+      .map(token => ({ token, voters: votesByToken.get(token.id) || [] }))
+      .filter(result => result.voters.length > 0)
+      .sort((a, b) => b.voters.length - a.voters.length || a.token.title.localeCompare(b.token.title, 'nl'));
+
+    if (rankedTokens.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'harvest-overview-empty';
+      empty.textContent = 'Er zijn geen stickers geplaatst.';
+      container.appendChild(empty);
+      return;
+    }
+
+    const highestVoteCount = rankedTokens[0].voters.length;
+    rankedTokens.forEach(({ token, voters }, index) => {
+      const card = document.createElement('article');
+      card.className = 'harvest-result-card';
+      if (voters.length === highestVoteCount) card.classList.add('is-main-harvest');
+
+      const rank = document.createElement('span');
+      rank.className = 'harvest-result-rank';
+      rank.textContent = voters.length === highestVoteCount ? 'Meest gekozen' : `${index + 1}e plek`;
+
+      const title = document.createElement('h3');
+      title.className = 'harvest-result-title';
+      title.textContent = token.title;
+
+      const footer = document.createElement('div');
+      footer.className = 'harvest-result-footer';
+
+      const stickerStack = document.createElement('div');
+      stickerStack.className = 'harvest-result-stickers';
+      stickerStack.setAttribute('aria-label', `${voters.length} ${voters.length === 1 ? 'sticker' : 'stickers'}`);
+      voters.forEach(participant => {
+        const sticker = document.createElement('img');
+        sticker.src = `/assets/stickers/sticker-${Math.max(1, Math.min(6, participant))}.png`;
+        sticker.alt = '';
+        stickerStack.appendChild(sticker);
+      });
+
+      const voteCount = document.createElement('span');
+      voteCount.className = 'harvest-result-votes';
+      voteCount.textContent = `${voters.length} ${voters.length === 1 ? 'sticker' : 'stickers'}`;
+
+      footer.append(stickerStack, voteCount);
+      card.append(rank, title, footer);
+      container.appendChild(card);
+    });
   }
 
   renderInfographicSVG() {
@@ -1369,12 +2406,16 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
 
   resetSession() {
+    this.sounds.stopAllWater();
+    this.sounds.stopAllDigging();
+    this.sounds.stopAmbient();
+    this.harvestMarket.reset();
     if (this.silenceTimer) {
       clearInterval(this.silenceTimer);
       this.silenceTimer = null;
     }
     this.silenceModeActive = false;
-    document.querySelectorAll('.edge-button').forEach(btn => btn.classList.remove('muted'));
+    document.querySelectorAll('.gardening-toolbar').forEach(toolbar => toolbar.classList.remove('muted'));
     const hud = document.querySelector('.silence-timer-hud');
     if (hud) hud.remove();
     
@@ -1400,6 +2441,15 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     this.skippedNudges = [];
     this.createdConnections = [];
     this.createdGroups = [];
+    this.discoveryPatches.forEach(patch => patch.element?.remove());
+    this.discoveryPatches = [];
+    this.discoveryPatchCounter = 0;
+    this.terrainBackground.reset();
+    this.cancelAllPendingSeeds();
+    [...this.heldToolActionStates.keys()].forEach(participant => this.clearHeldToolAction(participant));
+    this.activeTool = 'move';
+    this.participantToolModes.clear();
+    this.tokenInteractionTools.clear();
     this.smellEffectsEnabled = false;
     const toggleSmell = document.getElementById('toggle-smell-effects');
     if (toggleSmell) {
@@ -1412,6 +2462,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     }
     this.sessionGoal = 'Creatieve groeisessie';
     this.participantCount = 3;
+    this.configureParticipantToolbars(this.participantCount);
     this.syncSessionSetupForm();
     
     // Broadcast reset event to the separate wall screen
@@ -1425,11 +2476,13 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     }
     this.emptyStateOverlay = null;
     this.emptyStateVisible = false;
+    document.getElementById('canvas')?.classList.remove('toolbar-onboarding-active');
     this.exampleTokenIds.clear();
   }
 
   updateGrowthVisualization() {
     const groups = this.tokens.filter(t => t.type === 'group').map(g => ({
+      id: g.id,
       title: g.title,
       childCount: g.childTokensData.length
     }));
@@ -1456,6 +2509,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       activeState: this.currentState,
       isInteracting,
       createdConnections: this.createdConnections,
+      harvestMarket: this.harvestMarket.getSnapshot(),
       lastActivityTime: this.lastActivityTime
     });
   }
@@ -1469,22 +2523,37 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     const overlay = document.createElement('div');
     overlay.className = 'empty-state-overlay';
     overlay.innerHTML = `
-      <h2 class="empty-state-title">Fijn dat jullie er zijn!</h2>
-      <p class="empty-state-subtitle">Voeg een idee toe of probeer een voorbeeldtoken.</p>
+      <h2 class="empty-state-title">Welkom bij Associatieveld</h2>
+      <p class="empty-state-subtitle">Iedere deelnemer heeft dezelfde drie gereedschappen aan de eigen tafelrand.</p>
+      <div class="empty-state-tools" role="list" aria-label="Gereedschappen in de tuinman-toolbar">
+        <div class="empty-state-tool" role="listitem">
+          <img src="/assets/farm/seed-bag.png" alt="" draggable="false">
+          <span><strong>Zaadjes</strong><small>Plant een idee</small></span>
+        </div>
+        <div class="empty-state-tool" role="listitem">
+          <img src="/assets/farm/shovel.png" alt="" draggable="false">
+          <span><strong>Schep</strong><small>Maak los en verplaats</small></span>
+        </div>
+        <div class="empty-state-tool" role="listitem">
+          <img src="/assets/farm/watering-can.png" alt="" draggable="false">
+          <span><strong>Gieter</strong><small>Verbind ideeën</small></span>
+        </div>
+      </div>
     `;
     document.getElementById('canvas').appendChild(overlay);
+    document.getElementById('canvas').classList.add('toolbar-onboarding-active');
     this.emptyStateOverlay = overlay;
     this.emptyStateVisible = true;
-    
+
     const id1 = this.tokenIdCounter++;
-    const token1 = new Token(id1, w * 0.42, h * 0.55, 0, "Dubbel tik om mij te veranderen", (t, type) => this.handleTokenStateChange(t, type));
+    const token1 = new Token(id1, w * 0.43, h * 0.61, 0, "Maak mij los met de schep", (t, type, event) => this.handleTokenStateChange(t, type, event));
     token1.applyBoundaries();
     token1.updateStyle();
     this.tokens.push(token1);
     this.exampleTokenIds.add(id1);
     
     const id2 = this.tokenIdCounter++;
-    const token2 = new Token(id2, w * 0.58, h * 0.55, 0, "Sleep mij naar een ander idee", (t, type) => this.handleTokenStateChange(t, type));
+    const token2 = new Token(id2, w * 0.57, h * 0.61, 0, "Houd de gieter tussen ons", (t, type, event) => this.handleTokenStateChange(t, type, event));
     token2.applyBoundaries();
     token2.updateStyle();
     this.tokens.push(token2);
@@ -1493,6 +2562,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   dismissEmptyState() {
     if (!this.emptyStateVisible) return;
     this.emptyStateVisible = false;
+    document.getElementById('canvas')?.classList.remove('toolbar-onboarding-active');
     
     if (this.emptyStateOverlay) {
       this.emptyStateOverlay.classList.add('hidden');
@@ -1506,16 +2576,32 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     }
   }
   
-  handleTokenStateChange(token, type) {
+  handleTokenStateChange(token, type, event = null) {
     this.lastActivityTime = Date.now();
-    if (type === 'dragstart') {
+    if (type === 'pointerintent') {
+      if (this.currentState !== 'tableSession' || this.silenceModeActive) return false;
+      this.dismissEmptyState();
+      const toolbar = event ? this.getToolbarForPoint(event.clientX, event.clientY) : null;
+      const interactionTool = toolbar?.activeTool || 'move';
+      this.tokenInteractionTools.set(token.id, interactionTool);
+      if (token.isChild) return interactionTool === 'move' || interactionTool === 'connect';
+      if (token.isRooted || interactionTool !== 'move') return 'locked';
+      return true;
+    } else if (type === 'dragstart') {
+      const interactionTool = this.getInteractionTool(token);
       this.activeDragCount++;
+      token.domElement?.classList.toggle('connection-source', interactionTool === 'connect');
       this.updateBinMode();
       this.updateGrowthVisualization();
     } else if (type === 'dragmove') {
+      const interactionTool = this.getInteractionTool(token);
       this.checkBinCollisions(token);
       this.resolveGroupCollisions(token);
-      this.checkProximityGrouping(token);
+      if (interactionTool === 'connect') {
+        this.checkProximityGrouping(token);
+      } else {
+        this.clearProximityPreview();
+      }
       this.updateBinMode();
       this.updateAISuggestions();
       
@@ -1539,8 +2625,10 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
         this.updateContextZoneUI(token);
       }
     } else if (type === 'dragend') {
+      const interactionTool = this.getInteractionTool(token);
       this.activeDragCount = Math.max(0, this.activeDragCount - 1);
       token.isHoveringBin = false;
+      token.domElement?.classList.remove('connection-source');
       token.updateStyle();
       this.updateBinMode();
       this.updateAISuggestions();
@@ -1555,7 +2643,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       this.clearProximityPreview();
       
       let grouped = false;
-      if (candidateA && candidateB && candidateA === token) {
+      if (interactionTool === 'connect' && candidateA && candidateB && candidateA === token) {
         let isInsideGroup = false;
         if (candidateB.type === 'group' && candidateB.expanded) {
           const dx = candidateA.x - candidateB.x;
@@ -1584,13 +2672,19 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       }
       
       if (!grouped) {
-        this.handleDragEnd(token);
+        const deleted = this.handleDragEnd(token);
+        if (!deleted && interactionTool === 'move') {
+          this.rootIdeaToken(token);
+        }
       }
+      setTimeout(() => this.tokenInteractionTools.delete(token.id), 0);
     } else if (type === 'edit') {
       this.editToken(token);
     } else if (type === 'tap') {
       if (token.type === 'group') {
-        token.toggleExpand();
+        if (this.getInteractionTool(token) === 'move') {
+          token.scheduleToggle(() => token.toggleExpand());
+        }
       }
     } else if (type === 'select') {
       if (token.selected) {
@@ -1602,7 +2696,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
   
   checkProximityGrouping(draggedToken) {
-    if (draggedToken.type === 'group' || draggedToken.isChild) return;
+    if (this.getInteractionTool(draggedToken) !== 'connect' || draggedToken.type === 'group' || draggedToken.isChild) return;
     
     const groupingThreshold = 150;
     let closestToken = null;
@@ -1656,6 +2750,15 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
           this.previewSvg.style.display = 'block';
         }
       }
+      if (this.connectionFeedforward) {
+        const midX = (draggedToken.x + closestToken.x) / 2;
+        const midY = (draggedToken.y + closestToken.y) / 2;
+        const angle = Math.atan2(closestToken.y - draggedToken.y, closestToken.x - draggedToken.x) * 180 / Math.PI;
+        this.connectionFeedforward.style.left = `${midX}px`;
+        this.connectionFeedforward.style.top = `${midY}px`;
+        this.connectionFeedforward.style.rotate = `${angle}deg`;
+        this.connectionFeedforward.classList.add('visible');
+      }
     } else {
       this.clearProximityPreview();
     }
@@ -1672,123 +2775,227 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     if (this.previewSvg) {
       this.previewSvg.style.display = 'none';
     }
+    this.connectionFeedforward?.classList.remove('visible');
     
     this.previewCandidateA = null;
     this.previewCandidateB = null;
   }
 
-  async mergeTokensToGroup(tokenA, tokenB) {
+  createGroupingGrowthEffect(sourcePoints, targetPoint) {
+    const container = document.getElementById('token-container');
+    if (!container) return;
+    const namespace = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(namespace, 'svg');
+    svg.classList.add('grouping-growth-roots');
+    svg.setAttribute('aria-hidden', 'true');
+
+    sourcePoints.forEach((source, index) => {
+      const dx = targetPoint.x - source.x;
+      const dy = targetPoint.y - source.y;
+      const distance = Math.max(1, Math.hypot(dx, dy));
+      const curve = Math.min(52, Math.max(22, distance * 0.13));
+      const direction = index % 2 === 0 ? 1 : -1;
+      const middleX = (source.x + targetPoint.x) / 2 + (-dy / distance) * curve * direction;
+      const middleY = (source.y + targetPoint.y) / 2 + (dx / distance) * curve * direction;
+      const path = document.createElementNS(namespace, 'path');
+      path.setAttribute('d', `M ${source.x} ${source.y} Q ${middleX} ${middleY} ${targetPoint.x} ${targetPoint.y}`);
+      path.setAttribute('pathLength', '1');
+      path.style.setProperty('--root-delay', `${index * 70}ms`);
+      svg.appendChild(path);
+    });
+
+    const knot = document.createElement('div');
+    knot.className = 'grouping-growth-knot';
+    knot.style.left = `${targetPoint.x}px`;
+    knot.style.top = `${targetPoint.y}px`;
+    knot.setAttribute('aria-hidden', 'true');
+    for (let index = 0; index < 3; index++) {
+      knot.appendChild(document.createElement('i'));
+    }
+
+    container.append(svg, knot);
+    window.setTimeout(() => {
+      svg.remove();
+      knot.remove();
+    }, 1050);
+  }
+
+  animateTokenIntoGrowth(token, targetPoint, options = {}) {
+    const element = token.domElement;
+    if (!element) return Promise.resolve();
+    const {
+      curveDirection = 1,
+      targetRotation = token.rotation,
+      targetScale = 0.68,
+      duration = 760
+    } = options;
+    const startRect = element.getBoundingClientRect();
+    const startRotation = token.rotation;
+    token.isDragging = false;
+    token.x = targetPoint.x;
+    token.y = targetPoint.y;
+    token.rotation = targetRotation;
+    token.scale = targetScale;
+    element.classList.add('grouping-growth-source');
+    element.style.pointerEvents = 'none';
+    element.style.transition = 'none';
+    token.updateStyle();
+
+    const endRect = element.getBoundingClientRect();
+    const offsetX = startRect.left + startRect.width / 2 - (endRect.left + endRect.width / 2);
+    const offsetY = startRect.top + startRect.height / 2 - (endRect.top + endRect.height / 2);
+    const distance = Math.max(1, Math.hypot(offsetX, offsetY));
+    const bend = Math.min(48, Math.max(22, distance * 0.14)) * curveDirection;
+    const bendX = (-offsetY / distance) * bend;
+    const bendY = (offsetX / distance) * bend;
+    const startScale = Math.max(1, startRect.width / Math.max(1, endRect.width));
+    const rotationDelta = startRotation - targetRotation;
+
+    const animation = element.animate([
+      {
+        transform: `translate(${offsetX}px, ${offsetY}px) rotate(${rotationDelta}deg) scale(${startScale})`,
+        filter: 'drop-shadow(0 12px 12px rgba(55, 38, 16, 0.22))',
+        offset: 0
+      },
+      {
+        transform: `translate(${offsetX * 0.62 + bendX}px, ${offsetY * 0.62 + bendY}px) rotate(${rotationDelta * 0.52 + curveDirection * 2.5}deg) scale(${1 + (startScale - 1) * 0.62})`,
+        filter: 'drop-shadow(0 16px 14px rgba(76, 90, 42, 0.2))',
+        offset: 0.42
+      },
+      {
+        transform: `translate(${offsetX * 0.16 - bendX * 0.18}px, ${offsetY * 0.16 - bendY * 0.18}px) rotate(${curveDirection * -1.4}deg) scale(${1 + (startScale - 1) * 0.15})`,
+        filter: 'drop-shadow(0 7px 8px rgba(76, 90, 42, 0.16))',
+        offset: 0.78
+      },
+      {
+        transform: 'translate(0, 0) rotate(0deg) scale(0.92)',
+        filter: 'drop-shadow(0 3px 4px rgba(76, 90, 42, 0.12))',
+        offset: 0.9
+      },
+      {
+        transform: 'translate(0, 0) rotate(0deg) scale(1)',
+        filter: 'drop-shadow(0 2px 3px rgba(76, 90, 42, 0.08))',
+        offset: 1
+      }
+    ], {
+      duration,
+      easing: 'cubic-bezier(0.2, 0.78, 0.25, 1)',
+      fill: 'both'
+    });
+
+    return animation.finished.catch(() => undefined);
+  }
+
+  async mergeTokensToGroup(tokenA, tokenB, forceConnection = false) {
+    if (!forceConnection && this.getInteractionTool(tokenA) !== 'connect' && !this.activeNudge) return;
     this.hideAISuggestion(true);
     this.tokens = this.tokens.filter(t => t.id !== tokenA.id && t.id !== tokenB.id);
     if (this.soundEffectsEnabled) {
-      this.sounds.playGrowth();
+      this.sounds.playGroup();
     }
     
     const avgX = (tokenA.x + tokenB.x) / 2;
     const avgY = (tokenA.y + tokenB.y) / 2;
     const targetRotation = tokenA.rotation;
-    
-    if (tokenA.domElement) {
-      tokenA.domElement.style.transition = 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
-      tokenA.domElement.style.pointerEvents = 'none';
-      tokenA.x = avgX;
-      tokenA.y = avgY;
-      tokenA.scale = 0.5;
-      tokenA.rotation = targetRotation;
-      tokenA.updateStyle();
-    }
-    if (tokenB.domElement) {
-      tokenB.domElement.style.transition = 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
-      tokenB.domElement.style.pointerEvents = 'none';
-      tokenB.x = avgX;
-      tokenB.y = avgY;
-      tokenB.scale = 0.5;
-      tokenB.rotation = targetRotation;
-      tokenB.updateStyle();
-    }
-    
-    const groupName = await generateGroupName(tokenA.title, tokenB.title);
-    
-    setTimeout(() => {
-      tokenA.destroy();
-      tokenB.destroy();
+    const targetPoint = { x: avgX, y: avgY };
+    this.createGroupingGrowthEffect([
+      { x: tokenA.x, y: tokenA.y },
+      { x: tokenB.x, y: tokenB.y }
+    ], targetPoint);
+
+    const groupNamePromise = generateGroupName(tokenA.title, tokenB.title);
+    const growthPromise = Promise.all([
+      this.animateTokenIntoGrowth(tokenA, targetPoint, { curveDirection: 1, targetRotation }),
+      this.animateTokenIntoGrowth(tokenB, targetPoint, { curveDirection: -1, targetRotation })
+    ]);
+    const [groupName] = await Promise.all([groupNamePromise, growthPromise]);
+
+    tokenA.destroy();
+    tokenB.destroy();
       
-      const groupTokenId = this.tokenIdCounter++;
-      const childData = [
-        { id: tokenA.id, title: tokenA.title, borderRadius: tokenA.borderRadius, rotation: targetRotation },
-        { id: tokenB.id, title: tokenB.title, borderRadius: tokenB.borderRadius, rotation: targetRotation }
-      ];
+    const groupTokenId = this.tokenIdCounter++;
+    const childData = [
+      { id: tokenA.id, title: tokenA.title, borderRadius: tokenA.borderRadius, rotation: targetRotation },
+      { id: tokenB.id, title: tokenB.title, borderRadius: tokenB.borderRadius, rotation: targetRotation }
+    ];
       
-      const groupToken = new GroupToken(
-        groupTokenId,
-        avgX,
-        avgY,
-        targetRotation,
-        groupName,
-        childData,
-        (t, type) => this.handleTokenStateChange(t, type)
-      );
-      
-      this.tokens.push(groupToken);
-      this.resolveGroupCollisions(groupToken);
-      
-      this.createdGroups.push({
-        id: groupTokenId,
-        title: groupName,
-        childTitles: [tokenA.title, tokenB.title]
-      });
-      this.createdConnections.push({
-        type: 'merge',
-        source: tokenA.title,
-        target: tokenB.title
-      });
-      this.updateGrowthVisualization();
-    }, 350);
+    const groupToken = new GroupToken(
+      groupTokenId,
+      avgX,
+      avgY,
+      targetRotation,
+      groupName,
+      childData,
+      (t, type, event) => this.handleTokenStateChange(t, type, event)
+    );
+    groupToken.domElement?.classList.remove('spawning');
+    groupToken.domElement?.classList.add('grouping-growth-arrival');
+    window.setTimeout(() => groupToken.domElement?.classList.remove('grouping-growth-arrival'), 900);
+
+    this.tokens.push(groupToken);
+    this.resolveGroupCollisions(groupToken);
+
+    this.createdGroups.push({
+      id: groupTokenId,
+      title: groupName,
+      childTitles: [tokenA.title, tokenB.title]
+    });
+    this.createdConnections.push({
+      type: 'merge',
+      source: tokenA.title,
+      target: tokenB.title
+    });
+    this.updateGrowthVisualization();
   }
 
-  addTokenToGroup(token, group) {
+  async addTokenToGroup(token, group, forceConnection = false) {
+    if (!forceConnection && this.getInteractionTool(token) !== 'connect' && !this.activeNudge) return;
     this.hideAISuggestion(true);
     this.tokens = this.tokens.filter(t => t.id !== token.id);
     if (this.soundEffectsEnabled) {
-      this.sounds.playGrowth();
+      this.sounds.playGroup();
     }
     
-    if (token.domElement) {
-      token.domElement.style.transition = 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)';
-      token.domElement.style.pointerEvents = 'none';
-      token.x = group.x;
-      token.y = group.y;
-      token.scale = 0.5;
-      token.rotation = group.rotation;
-      token.updateStyle();
+    const targetPoint = { x: group.x, y: group.y };
+    this.createGroupingGrowthEffect([{ x: token.x, y: token.y }], targetPoint);
+    group.domElement?.classList.add('grouping-growth-receiving');
+    await this.animateTokenIntoGrowth(token, targetPoint, {
+      curveDirection: token.x <= group.x ? 1 : -1,
+      targetRotation: group.rotation,
+      targetScale: 0.62,
+      duration: 720
+    });
+    token.destroy();
+      
+    group.addChildToken({
+      id: token.id,
+      title: token.title,
+      borderRadius: token.borderRadius,
+      rotation: group.rotation
+    });
+    group.domElement?.classList.remove('grouping-growth-receiving');
+    group.domElement?.classList.add('grouping-growth-settled');
+    window.setTimeout(() => group.domElement?.classList.remove('grouping-growth-settled'), 620);
+      
+    this.createdConnections.push({
+      type: 'add-to-group',
+      source: token.title,
+      target: group.title
+    });
+      
+    const gObj = this.createdGroups.find(g => g.title === group.title);
+    if (gObj) {
+      gObj.childTitles.push(token.title);
     }
-    
-    setTimeout(() => {
-      token.destroy();
-      
-      group.addChildToken({
-        id: token.id,
-        title: token.title,
-        borderRadius: token.borderRadius,
-        rotation: group.rotation
-      });
-      
-      this.createdConnections.push({
-        type: 'add-to-group',
-        source: token.title,
-        target: group.title
-      });
-      
-      const gObj = this.createdGroups.find(g => g.title === group.title);
-      if (gObj) {
-        gObj.childTitles.push(token.title);
-      }
-      this.updateGrowthVisualization();
-    }, 350);
+    this.updateGrowthVisualization();
   }
   
   editToken(token) {
     if (this.silenceModeActive) return;
+    if (this.harvestMarket.active || this.harvestMarket.complete) {
+      if (token.editing) token.stopEditing();
+      return;
+    }
     
     // Dismiss empty state welcome text when user edits any token
     this.dismissEmptyState();
@@ -1831,7 +3038,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
           token.domElement.style.pointerEvents = 'auto';
         }
         // Remove from example tokens since the user modified it
-        if (text && text.trim() !== "" && text !== "Dubbel tik om mij te veranderen" && text !== "Sleep mij naar een ander idee") {
+        if (text && text.trim() !== "" && text !== "Maak mij los met de schep" && text !== "Houd de gieter tussen ons") {
           this.exampleTokenIds.delete(token.id);
         }
         this.lastActivityTime = Date.now();
@@ -1968,18 +3175,27 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
 
   showNudgeFeedback(text) {
-    const feedback = document.createElement('div');
-    feedback.className = 'nudge-feedback-toast';
-    feedback.innerText = text;
-    document.getElementById('canvas').appendChild(feedback);
-    
-    requestAnimationFrame(() => {
-      feedback.classList.add('visible');
-    });
-    
-    setTimeout(() => {
-      feedback.classList.remove('visible');
-      setTimeout(() => feedback.remove(), 400);
+    const canvas = document.getElementById('canvas');
+    if (!canvas) return;
+
+    if (!this.nudgeFeedbackElement?.isConnected) {
+      this.nudgeFeedbackElement = document.createElement('div');
+      this.nudgeFeedbackElement.className = 'nudge-feedback-toast';
+      this.nudgeFeedbackElement.setAttribute('role', 'status');
+      this.nudgeFeedbackElement.setAttribute('aria-live', 'polite');
+      canvas.appendChild(this.nudgeFeedbackElement);
+    }
+
+    const feedback = this.nudgeFeedbackElement;
+    if (this.nudgeFeedbackTimeout) clearTimeout(this.nudgeFeedbackTimeout);
+    feedback.textContent = text;
+    feedback.classList.remove('updating');
+    void feedback.offsetWidth;
+    feedback.classList.add('visible', 'updating');
+
+    this.nudgeFeedbackTimeout = setTimeout(() => {
+      feedback.classList.remove('visible', 'updating');
+      this.nudgeFeedbackTimeout = null;
     }, 1500);
   }
 
@@ -2181,8 +3397,8 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       overlay.classList.add('visible');
     });
     
-    document.querySelectorAll('.edge-button').forEach(btn => {
-      btn.classList.add('muted');
+    document.querySelectorAll('.gardening-toolbar').forEach(toolbar => {
+      toolbar.classList.add('muted');
     });
     
     this.silenceModeActive = true;
@@ -2214,8 +3430,8 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       this.silenceModeActive = false;
       
       document.getElementById('canvas').classList.remove('silence-active');
-      document.querySelectorAll('.edge-button').forEach(btn => {
-        btn.classList.remove('muted');
+      document.querySelectorAll('.gardening-toolbar').forEach(toolbar => {
+        toolbar.classList.remove('muted');
       });
       
       overlay.classList.remove('visible');
@@ -2244,7 +3460,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
   
   updateBinMode() {
-    const buttons = document.querySelectorAll('.edge-button');
+    const buttons = document.querySelectorAll('.gardening-toolbar');
     
     // Find all currently dragged tokens
     const draggingTokens = this.tokens.filter(t => t.isDragging && !t.isChild);
@@ -2257,7 +3473,7 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       let minDistance = Infinity;
       
       buttons.forEach(btn => {
-        const { x: btnCenterX, y: btnCenterY } = this.getEdgeButtonCenter(btn);
+        const { x: btnCenterX, y: btnCenterY } = this.getToolbarCenter(btn);
         
         const dist = Math.hypot(token.x - btnCenterX, token.y - btnCenterY);
         if (dist < minDistance) {
@@ -2272,34 +3488,28 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     });
     
     buttons.forEach(btn => {
-      const icon = btn.querySelector('.icon');
-      const label = btn.querySelector('.edge-button-label');
       if (binTargetButtons.has(btn)) {
         if (!btn.classList.contains('bin-mode')) {
           btn.classList.add('bin-mode');
-          icon.innerHTML = BIN_ICON;
-          if (label) label.textContent = BIN_LABEL;
           btn.setAttribute('aria-label', 'Snoei idee');
         }
       } else {
         if (btn.classList.contains('bin-mode')) {
           btn.classList.remove('bin-mode');
           btn.classList.remove('drag-over');
-          icon.innerHTML = PLANT_ICON;
-          if (label) label.textContent = PLANT_LABEL;
-          btn.setAttribute('aria-label', this.getPlantButtonAriaLabel(btn));
+          btn.setAttribute('aria-label', `Tuinman toolbar deelnemer ${btn.dataset.participant}`);
         }
       }
     });
   }
   
   checkBinCollisions(draggedToken) {
-    const buttons = document.querySelectorAll('.edge-button:not(.hidden-btn)');
+    const buttons = document.querySelectorAll('.gardening-toolbar');
     const threshold = 90; // Collision check distance
     let hoveringAny = false;
     
     buttons.forEach(btn => {
-      const { x: btnCenterX, y: btnCenterY } = this.getEdgeButtonCenter(btn);
+      const { x: btnCenterX, y: btnCenterY } = this.getToolbarCenter(btn);
       
       const dist = Math.hypot(draggedToken.x - btnCenterX, draggedToken.y - btnCenterY);
       
@@ -2329,12 +3539,12 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
   
   handleDragEnd(token) {
-    const buttons = document.querySelectorAll('.edge-button:not(.hidden-btn)');
+    const buttons = document.querySelectorAll('.gardening-toolbar');
     const threshold = 90;
     let deleted = false;
     
     buttons.forEach(btn => {
-      const { x: btnCenterX, y: btnCenterY } = this.getEdgeButtonCenter(btn);
+      const { x: btnCenterX, y: btnCenterY } = this.getToolbarCenter(btn);
       
       const dist = Math.hypot(token.x - btnCenterX, token.y - btnCenterY);
       
@@ -2349,6 +3559,52 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
       // Clear remaining hover highlights when all drags end
       buttons.forEach(btn => btn.classList.remove('drag-over'));
     }
+    return deleted;
+  }
+
+  animateIdeaTokenCut(token, element, onComplete) {
+    const canvas = document.getElementById('canvas');
+    if (!canvas || !element) {
+      onComplete();
+      return;
+    }
+
+    // Tokens are visually reduced to 45% while hovering over the prune target.
+    const displayedScale = 0.45;
+    const stage = document.createElement('div');
+    stage.className = 'token-cut-stage';
+    stage.setAttribute('aria-hidden', 'true');
+    stage.style.left = `${token.x}px`;
+    stage.style.top = `${token.y}px`;
+    stage.style.width = `${element.offsetWidth * displayedScale}px`;
+    stage.style.height = `${element.offsetHeight * displayedScale}px`;
+    stage.style.rotate = `${token.rotation}deg`;
+
+    const scissors = document.createElement('img');
+    scissors.className = 'token-cut-scissors';
+    scissors.src = '/assets/farm/pruning-shears.png';
+    scissors.alt = '';
+    scissors.draggable = false;
+    stage.appendChild(scissors);
+    canvas.appendChild(stage);
+
+    element.classList.remove('dragging', 'spawning', 'selected');
+    element.classList.add('token-pruning');
+    element.style.transition = 'none';
+    element.style.scale = String(displayedScale);
+    element.style.opacity = '1';
+    element.style.zIndex = '109';
+    element.style.pointerEvents = 'none';
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    requestAnimationFrame(() => stage.classList.add('cutting'));
+    setTimeout(() => {
+      stage.classList.add('is-cut');
+      element.classList.add('is-pruned');
+    }, reducedMotion ? 30 : 210);
+    setTimeout(() => {
+      stage.remove();
+      onComplete();
+    }, reducedMotion ? 180 : 650);
   }
   
   deleteToken(token) {
@@ -2357,9 +3613,15 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
     if (this.soundEffectsEnabled) {
       this.sounds.playSnoei();
     }
-    if (el) {
+    if (el && token.type !== 'group') {
+      this.tokens = this.tokens.filter(t => t.id !== token.id);
+      this.animateIdeaTokenCut(token, el, () => {
+        token.destroy();
+        this.updateAISuggestions();
+      });
+    } else if (el) {
       el.style.transition = 'all 0.3s cubic-bezier(0.6, -0.28, 0.735, 0.045)';
-      // Shrink and rotate token while deleting for a organic feel
+      // Groups keep the compact disappearance because they cannot be split cleanly.
       el.style.scale = '0';
       el.style.rotate = `${token.rotation + 45}deg`;
       el.style.opacity = '0';
@@ -3104,6 +4366,20 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
 
   updateAISuggestions() {
+    this.disableLegacySuggestions();
+    return;
+  }
+
+  disableLegacySuggestions() {
+    document.getElementById('ai-suggestion-dot')?.remove();
+    document.getElementById('ai-suggestion-svg')?.remove();
+    document.querySelectorAll('.context-zone, .silence-overlay, .silence-timer-hud').forEach(element => element.remove());
+    this.activeNudge = null;
+    this.activeSuggestion = null;
+    this.clearConnectionSoundState();
+  }
+
+  updateLegacyAISuggestions() {
     if (this.silenceModeActive) {
       this.hideAISuggestion();
       return;
@@ -3284,8 +4560,9 @@ ${sessionResult.skippedNudges.length === 0 ? '  (Geen)' : sessionResult.skippedN
   }
 }
 
-// Instantiate manager on document load
-window.addEventListener('DOMContentLoaded', () => {
+// Vite may evaluate this module after DOMContentLoaded during a preview refresh.
+function initializeCanvasManager() {
+  if (window.canvasManager) return;
   window.canvasManager = new CanvasManager();
   window.Token = Token;
   window.GroupToken = GroupToken;
@@ -3306,4 +4583,10 @@ window.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
     }
   }, { passive: false });
-});
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initializeCanvasManager, { once: true });
+} else {
+  initializeCanvasManager();
+}

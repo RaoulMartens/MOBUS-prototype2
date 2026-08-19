@@ -9,6 +9,117 @@ export function generateDisplayTitle(text, limit = 50) {
   return truncated + '...';
 }
 
+const SPROUT_ASSETS = Array.from({ length: 6 }, (_, index) => `/assets/farm/sprout-v${index + 1}.png`);
+
+function createShapeProfile(width, height, horizontalRadii, verticalRadii) {
+  return {
+    width,
+    height,
+    horizontalRadii,
+    verticalRadii,
+    radius: `${horizontalRadii.join('% ')}% / ${verticalRadii.join('% ')}%`
+  };
+}
+
+const ORGANIC_SHAPE_PROFILES = [
+  createShapeProfile(222, 104, [56, 44, 52, 48], [58, 46, 54, 42]),
+  createShapeProfile(174, 136, [48, 52, 57, 43], [52, 61, 39, 48]),
+  createShapeProfile(202, 120, [63, 37, 48, 52], [47, 58, 42, 53]),
+  createShapeProfile(188, 128, [44, 56, 39, 61], [62, 47, 53, 38]),
+  createShapeProfile(228, 100, [42, 58, 60, 40], [52, 64, 36, 48]),
+  createShapeProfile(182, 132, [60, 40, 55, 45], [59, 43, 57, 41]),
+  createShapeProfile(212, 110, [51, 49, 64, 36], [45, 60, 40, 55]),
+  createShapeProfile(176, 130, [38, 62, 47, 53], [56, 40, 60, 44])
+];
+
+function getEllipseOffset(position, center, radius) {
+  const normalizedOffset = Math.max(-1, Math.min(1, (position - center) / radius));
+  return Math.sqrt(1 - normalizedOffset ** 2);
+}
+
+function createBorderPoint(profile, x, y, centerX, centerY, radiusX, radiusY) {
+  const deltaX = ((x - centerX) / 100) * profile.width;
+  const deltaY = ((y - centerY) / 100) * profile.height;
+  const pixelRadiusX = (radiusX / 100) * profile.width;
+  const pixelRadiusY = (radiusY / 100) * profile.height;
+  const gradientX = deltaX / pixelRadiusX ** 2;
+  const gradientY = deltaY / pixelRadiusY ** 2;
+  const gradientLength = Math.hypot(gradientX, gradientY) || 1;
+  const normalX = gradientX / gradientLength;
+  const normalY = gradientY / gradientLength;
+
+  return {
+    x,
+    y,
+    normalX,
+    normalY,
+    rotation: Math.atan2(normalY, normalX) * (180 / Math.PI) + 90
+  };
+}
+
+function getBorderPoint(profile, side, position) {
+  const [topLeftX, topRightX, bottomRightX, bottomLeftX] = profile.horizontalRadii;
+  const [topLeftY, topRightY, bottomRightY, bottomLeftY] = profile.verticalRadii;
+
+  if (side === 'top') {
+    if (position <= topLeftX) {
+      const y = topLeftY * (1 - getEllipseOffset(position, topLeftX, topLeftX));
+      return createBorderPoint(profile, position, y, topLeftX, topLeftY, topLeftX, topLeftY);
+    }
+    const y = topRightY * (1 - getEllipseOffset(position, 100 - topRightX, topRightX));
+    return createBorderPoint(profile, position, y, 100 - topRightX, topRightY, topRightX, topRightY);
+  }
+
+  if (side === 'bottom') {
+    if (position <= bottomLeftX) {
+      const y = 100 - bottomLeftY * (1 - getEllipseOffset(position, bottomLeftX, bottomLeftX));
+      return createBorderPoint(profile, position, y, bottomLeftX, 100 - bottomLeftY, bottomLeftX, bottomLeftY);
+    }
+    const y = 100 - bottomRightY * (1 - getEllipseOffset(position, 100 - bottomRightX, bottomRightX));
+    return createBorderPoint(profile, position, y, 100 - bottomRightX, 100 - bottomRightY, bottomRightX, bottomRightY);
+  }
+
+  if (side === 'left') {
+    if (position <= topLeftY) {
+      const x = topLeftX * (1 - getEllipseOffset(position, topLeftY, topLeftY));
+      return createBorderPoint(profile, x, position, topLeftX, topLeftY, topLeftX, topLeftY);
+    }
+    const x = bottomLeftX * (1 - getEllipseOffset(position, 100 - bottomLeftY, bottomLeftY));
+    return createBorderPoint(profile, x, position, bottomLeftX, 100 - bottomLeftY, bottomLeftX, bottomLeftY);
+  }
+
+  if (position <= topRightY) {
+    const x = 100 - topRightX * (1 - getEllipseOffset(position, topRightY, topRightY));
+    return createBorderPoint(profile, x, position, 100 - topRightX, topRightY, topRightX, topRightY);
+  }
+  const x = 100 - bottomRightX * (1 - getEllipseOffset(position, 100 - bottomRightY, bottomRightY));
+  return createBorderPoint(profile, x, position, 100 - bottomRightX, 100 - bottomRightY, bottomRightX, bottomRightY);
+}
+
+function getStableIndex(value, length) {
+  let hash = 2166136261;
+  for (const character of String(value)) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % length;
+}
+
+function createSeededRandom(value) {
+  let seed = 2166136261;
+  for (const character of String(value)) {
+    seed ^= character.charCodeAt(0);
+    seed = Math.imul(seed, 16777619);
+  }
+  return () => {
+    seed += 0x6d2b79f5;
+    let result = seed;
+    result = Math.imul(result ^ (result >>> 15), result | 1);
+    result ^= result + Math.imul(result ^ (result >>> 7), result | 61);
+    return ((result ^ (result >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export class Token {
   constructor(id, x, y, rotation, title = "Plant idee", onStateChange) {
     this.id = id;
@@ -16,26 +127,29 @@ export class Token {
     this.y = y;
     this.rotation = rotation; // degrees
     this.scale = 1.0;
-    this.baseWidth = 160;
-    this.baseHeight = 130;
+    this.baseWidth = 190;
+    this.baseHeight = 108;
     this.title = title;
     this.displayTitle = generateDisplayTitle(title);
     this.selected = false;
     this.editing = false;
     this.isDragging = false;
+    this.isRooted = true;
+    this.dragLocked = false;
     this.isHoveringBin = false;
     this.isChild = false;
     this.parentGroup = null;
     this.downX = 0;
     this.downY = 0;
     
-    // Generate a unique, subtle, smooth pebble-like organic shape dynamically
-    const r = () => Math.floor(Math.random() * 14) + 43; // Radii between 43% and 56% for subtle curves
-    const h1 = r();
-    const h2 = r();
-    const v1 = r();
-    const v2 = r();
-    this.borderRadius = `${h1}% ${100 - h1}% ${h2}% ${100 - h2}% / ${v1}% ${v2}% ${100 - v2}% ${100 - v1}%`;
+    // Stable random profile keeps every idea recognizably unique across re-renders.
+    const random = createSeededRandom(id);
+    const shapeProfile = ORGANIC_SHAPE_PROFILES[getStableIndex(id, ORGANIC_SHAPE_PROFILES.length)];
+    this.shapeProfile = shapeProfile;
+    this.borderRadius = shapeProfile.radius;
+    this.baseWidth = shapeProfile.width;
+    this.baseHeight = shapeProfile.height;
+    this.sproutProfile = this.createSproutProfile(random, shapeProfile);
     
     // Callback to inform parent manager of updates (drag status, position, deleted)
     this.onStateChange = onStateChange;
@@ -79,6 +193,7 @@ export class Token {
     this.flipAffordanceElement = null;
     
     this.createDom();
+    this.setRooted(true);
     this.setupEvents();
   }
   
@@ -124,13 +239,14 @@ export class Token {
     inner.appendChild(front);
     inner.appendChild(back);
     el.appendChild(inner);
-    
+    this.appendSprouts(el);
+
     this.domElement = el;
     this.innerElement = inner;
     this.titleElement = title;
     this.backTitleElement = backTitle;
     this.frontElement = front;
-    
+
     // Flip affordance icon on front (small curved arrow)
     const flipAffordance = document.createElement('div');
     flipAffordance.className = 'flip-affordance';
@@ -143,18 +259,68 @@ export class Token {
     });
     front.appendChild(flipAffordance);
     this.flipAffordanceElement = flipAffordance;
-    
+
     // Apply coordinates and style BEFORE appending to DOM to prevent top-left flash
     this.updateStyle();
-    
+
     // Remove spawning animation class after it completes
     setTimeout(() => {
       if (this.domElement) {
         this.domElement.classList.remove('spawning');
       }
     }, 400);
-    
+
     document.getElementById('token-container').appendChild(el);
+  }
+
+  appendSprouts(element) {
+    this.sproutProfile.forEach((sprout) => {
+      const image = document.createElement('img');
+      image.className = 'token-sprout';
+      image.src = sprout.src;
+      image.alt = '';
+      image.draggable = false;
+      image.style.setProperty('--sprout-x', `${sprout.x}%`);
+      image.style.setProperty('--sprout-y', `${sprout.y}%`);
+      image.style.setProperty('--sprout-rotation', `${sprout.rotation}deg`);
+      image.style.setProperty('--sprout-size', `${sprout.size}px`);
+      element.appendChild(image);
+    });
+  }
+
+  createSproutProfile(random, shapeProfile) {
+    const borderInset = 4;
+    const slotDefinitions = [
+      { side: 'top', position: 28 },
+      { side: 'top', position: 50 },
+      { side: 'top', position: 72 },
+      { side: 'bottom', position: 29 },
+      { side: 'bottom', position: 51 },
+      { side: 'bottom', position: 73 },
+      { side: 'left', position: 50 },
+      { side: 'right', position: 50 }
+    ];
+    const slots = slotDefinitions.map((slot) => {
+      const borderPoint = getBorderPoint(shapeProfile, slot.side, slot.position);
+      return {
+        x: borderPoint.x - (borderPoint.normalX * borderInset / shapeProfile.width) * 100,
+        y: borderPoint.y - (borderPoint.normalY * borderInset / shapeProfile.height) * 100,
+        rotation: borderPoint.rotation
+      };
+    });
+    const count = 1 + Math.floor(random() * 3);
+    const availableSlots = [...slots];
+    return Array.from({ length: count }, () => {
+      const slotIndex = Math.floor(random() * availableSlots.length);
+      const slot = availableSlots.splice(slotIndex, 1)[0];
+      return {
+        x: slot.x + (random() - 0.5) * 2,
+        y: slot.y + (random() - 0.5) * 2,
+        rotation: slot.rotation + (random() - 0.5) * 4,
+        size: 27 + Math.round(random() * 10),
+        src: SPROUT_ASSETS[Math.floor(random() * SPROUT_ASSETS.length)]
+      };
+    });
   }
   
   updateStyle() {
@@ -297,6 +463,28 @@ export class Token {
     }
   }
 
+  setRooted(rooted, animate = false) {
+    this.isRooted = rooted;
+    if (!this.domElement) return;
+    let marker = this.domElement.querySelector('.token-root-state');
+    if (!marker) {
+      marker = document.createElement('span');
+      marker.className = 'token-root-state';
+      marker.setAttribute('aria-hidden', 'true');
+      this.domElement.appendChild(marker);
+    }
+    this.domElement.classList.toggle('idea-rooted', rooted);
+    this.domElement.classList.toggle('idea-loose', !rooted);
+    this.domElement.dataset.rootState = rooted ? 'rooted' : 'loose';
+    this.domElement.setAttribute('aria-description', rooted ? 'Vast in de grond' : 'Los en verplaatsbaar');
+    if (animate) {
+      const animationClass = rooted ? 'rooting-in' : 'uprooting';
+      this.domElement.classList.remove('rooting-in', 'uprooting');
+      this.domElement.classList.add(animationClass);
+      setTimeout(() => this.domElement?.classList.remove(animationClass), 520);
+    }
+  }
+
   flip() {
     if (this.type === 'group' || this.isFlipped) return;
     this.isFlipped = true;
@@ -375,6 +563,12 @@ export class Token {
   
   handlePointerDown(e) {
     if (this.editing) return; // Ignore gesture/drag if typing
+
+    const pointerIntent = this.onStateChange ? this.onStateChange(this, 'pointerintent', e) : true;
+    if (pointerIntent === false) {
+      return;
+    }
+    this.dragLocked = pointerIntent === 'locked';
     
     e.stopPropagation();
     
@@ -413,7 +607,7 @@ export class Token {
     }
     this.lastTapTime = now;
     
-    if (!this.isDragging) {
+    if (!this.isDragging && !this.dragLocked) {
       this.isDragging = true;
       this.triggerChange('dragstart');
     }
@@ -453,6 +647,8 @@ export class Token {
     // Update pointer position
     this.activePointers[ptrIndex].clientX = e.clientX;
     this.activePointers[ptrIndex].clientY = e.clientY;
+
+    if (this.dragLocked && this.activePointers.length === 1) return;
     
     if (this.activePointers.length === 1) {
       // Normal single finger drag
@@ -489,13 +685,15 @@ export class Token {
       // Translate based on midpoint change
       const mx = currentMidpoint.x - this.startMidpoint.x;
       const my = currentMidpoint.y - this.startMidpoint.y;
-      this.x = this.startTokenX + mx;
-      this.y = this.startTokenY + my;
+      if (!this.dragLocked) {
+        this.x = this.startTokenX + mx;
+        this.y = this.startTokenY + my;
+      }
       
       this.applyBoundaries();
       this.updateStyle();
       
-      this.triggerChange('dragmove');
+      this.triggerChange(this.dragLocked ? 'statechange' : 'dragmove');
     }
   }
   
@@ -518,8 +716,9 @@ export class Token {
     
     if (this.activePointers.length === 0) {
       // All dragging complete
+      const wasDragging = this.isDragging;
       this.isDragging = false;
-      this.triggerChange('dragend');
+      if (wasDragging) this.triggerChange('dragend');
       if (isTap) {
         this.triggerChange('tap');
       } else {
@@ -527,6 +726,7 @@ export class Token {
         this.updateStyle();
         this.triggerChange('select');
       }
+      this.dragLocked = false;
     } else if (this.activePointers.length === 1) {
       // Transited from multi-touch back to single finger drag.
       // Re-anchor coordinates with remaining pointer to prevent jump.

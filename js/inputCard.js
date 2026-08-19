@@ -10,7 +10,7 @@ function triggerKeyFeedback() {
 }
 
 export class InputCard {
-  constructor(id, btnX, btnY, targetX, targetY, rotation, btnElement, onConfirm, onCancel, sourceToken = null) {
+  constructor(id, btnX, btnY, targetX, targetY, rotation, btnElement, onConfirm, onCancel, sourceToken = null, options = {}) {
     this.id = id;
     this.btnX = btnX;
     this.btnY = btnY;
@@ -21,6 +21,7 @@ export class InputCard {
     this.onConfirm = onConfirm;
     this.onCancel = onCancel;
     this.sourceToken = sourceToken;
+    this.originKind = options.originKind || 'seed';
     
     this.typedText = this.sourceToken ? this.sourceToken.title : '';
     this.domElement = null;
@@ -38,7 +39,8 @@ export class InputCard {
   
   createDom() {
     const el = document.createElement('div');
-    el.className = 'input-card';
+    el.className = 'input-card farm-input-card farm-panel';
+    if (!this.sourceToken && this.originKind === 'toolbar') el.classList.add('from-toolbar');
     el.id = `input-card-${this.id}`;
     
     // Position card exactly on top of the plus button or source token initially
@@ -52,11 +54,14 @@ export class InputCard {
       el.style.borderColor = 'var(--token-border)';
       el.style.boxShadow = 'var(--token-shadow)';
     } else {
-      el.style.left = `${this.btnX - 28}px`;
-      el.style.top = `${this.btnY - 28}px`;
-      el.style.width = '56px';
-      el.style.height = '56px';
-      el.style.borderRadius = '50%';
+      const startsAtToolbar = this.originKind === 'toolbar';
+      const startWidth = startsAtToolbar ? 72 : 56;
+      const startHeight = startsAtToolbar ? 54 : 56;
+      el.style.left = `${this.btnX - startWidth / 2}px`;
+      el.style.top = `${this.btnY - startHeight / 2}px`;
+      el.style.width = `${startWidth}px`;
+      el.style.height = `${startHeight}px`;
+      el.style.borderRadius = startsAtToolbar ? '18px' : '50%';
     }
     el.style.rotate = `${this.rotation}deg`;
     
@@ -64,11 +69,9 @@ export class InputCard {
     if (!this.sourceToken) {
       const seedIcon = document.createElement('div');
       seedIcon.className = 'input-card-plus-icon';
-      seedIcon.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>`;
+      seedIcon.innerHTML = this.originKind === 'toolbar'
+        ? '<span class="toolbar-keyboard-origin" aria-hidden="true"><i></i><i></i><i></i></span>'
+        : '<img src="/assets/farm/seed.png" alt="" draggable="false">';
       el.appendChild(seedIcon);
     }
     
@@ -78,7 +81,7 @@ export class InputCard {
     
     // Text display area with custom text and animated cursor caret
     const display = document.createElement('div');
-    display.className = 'input-card-display';
+    display.className = 'input-card-display farm-input';
     
     const placeholder = document.createElement('span');
     placeholder.className = 'input-card-placeholder';
@@ -100,7 +103,7 @@ export class InputCard {
     
     // Keyboard layout
     const keyboard = document.createElement('div');
-    keyboard.className = 'input-card-keyboard';
+    keyboard.className = 'input-card-keyboard farm-keyboard';
     
     const rows = [
       ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
@@ -113,7 +116,7 @@ export class InputCard {
       row.className = 'keyboard-row';
       keys.forEach(keyChar => {
         const key = document.createElement('div');
-        key.className = 'keyboard-key';
+        key.className = 'keyboard-key farm-key';
         key.innerText = keyChar;
         
         const isLetter = /^[A-Z]$/.test(keyChar);
@@ -145,7 +148,7 @@ export class InputCard {
     bottomRow.className = 'keyboard-row';
     
     const spaceKey = document.createElement('div');
-    spaceKey.className = 'keyboard-key space';
+    spaceKey.className = 'keyboard-key farm-key space';
     spaceKey.innerText = 'Spatie';
     spaceKey.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -155,7 +158,7 @@ export class InputCard {
     });
     
     const backspaceKey = document.createElement('div');
-    backspaceKey.className = 'keyboard-key backspace';
+    backspaceKey.className = 'keyboard-key farm-key backspace';
     backspaceKey.innerText = '⌫';
     backspaceKey.addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -174,8 +177,8 @@ export class InputCard {
     actions.className = 'input-card-actions';
     
     const cancelBtn = document.createElement('button');
-    cancelBtn.className = 'input-card-cancel';
-    cancelBtn.innerText = 'Terug naar canvas';
+    cancelBtn.className = 'input-card-cancel farm-button farm-button--compact farm-button--secondary';
+    cancelBtn.innerText = 'Terug';
     cancelBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -183,8 +186,8 @@ export class InputCard {
     });
     
     const submitBtn = document.createElement('button');
-    submitBtn.className = 'input-card-submit';
-    submitBtn.innerText = this.sourceToken ? 'Verzorgen' : 'Planten';
+    submitBtn.className = 'input-card-submit farm-button farm-button--compact farm-button--primary';
+    submitBtn.innerText = this.sourceToken ? 'Plaatsen' : 'Planten';
     submitBtn.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -309,11 +312,14 @@ export class InputCard {
         this.domElement.style.borderColor = 'var(--token-border)';
         this.domElement.style.boxShadow = 'var(--token-shadow)';
       } else {
-        this.domElement.style.left = `${this.btnX - 28}px`;
-        this.domElement.style.top = `${this.btnY - 28}px`;
-        this.domElement.style.width = '56px';
-        this.domElement.style.height = '56px';
-        this.domElement.style.borderRadius = '50%';
+        const startsAtToolbar = this.originKind === 'toolbar';
+        const startWidth = startsAtToolbar ? 72 : 56;
+        const startHeight = startsAtToolbar ? 54 : 56;
+        this.domElement.style.left = `${this.btnX - startWidth / 2}px`;
+        this.domElement.style.top = `${this.btnY - startHeight / 2}px`;
+        this.domElement.style.width = `${startWidth}px`;
+        this.domElement.style.height = `${startHeight}px`;
+        this.domElement.style.borderRadius = startsAtToolbar ? '18px' : '50%';
       }
       
       setTimeout(() => {

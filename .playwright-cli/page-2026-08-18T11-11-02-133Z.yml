@@ -1,0 +1,155 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic:
+      - generic: Creatieve Groeisessie
+      - button "Instellingen"
+    - generic "Tuinman toolbar deelnemer 1":
+      - toolbar "Gereedschap deelnemer 1":
+        - button "Nieuw idee"
+        - button "Verplaatsen" [pressed]
+        - button "Verbinden"
+        - generic: Snoeien
+    - generic "Tuinman toolbar deelnemer 2":
+      - toolbar "Gereedschap deelnemer 2":
+        - button "Nieuw idee"
+        - button "Verplaatsen" [pressed]
+        - button "Verbinden"
+        - generic: Snoeien
+    - generic "Tuinman toolbar deelnemer 3":
+      - toolbar "Gereedschap deelnemer 3":
+        - button "Nieuw idee"
+        - button "Verplaatsen" [pressed]
+        - button "Verbinden"
+        - generic: Snoeien
+    - generic:
+      - button "Afronden"
+    - generic:
+      - generic:
+        - generic:
+          - button "Terug naar canvas"
+          - heading "Canvas-instellingen" [level=3]
+        - generic:
+          - generic: Geluidsfeedback
+          - generic:
+            - checkbox [checked]
+        - generic:
+          - generic: Geureffecten
+          - generic:
+            - checkbox
+        - generic:
+          - generic: Aantal deelnemers
+          - generic "Aantal deelnemers":
+            - button "Minder deelnemers"
+            - status: "3"
+            - button "Meer deelnemers"
+          - generic: Min. 1, max. 6 deelnemers
+        - button "Zo gebruik je het canvas"
+        - button "Oogsten"
+  - generic [ref=e3]:
+    - generic:
+      - generic:
+        - generic:
+          - paragraph: Welkom in MOBUS
+          - heading "Zet je denken in beweging" [level=1]:
+            - generic: Zet je denken in
+            - generic: beweging
+          - paragraph: MOBUS helpt je om anders naar een vraagstuk te kijken. Kies een sessie die past bij wat je nu nodig hebt.
+          - button "Kies een sessie"
+        - img "HAN University of Applied Sciences"
+    - generic:
+      - generic:
+        - heading "Kies een sessie" [level=1]
+        - generic:
+          - button "Start de sessie Associatieveld":
+            - generic:
+              - generic: Work on many ideas
+              - generic: 3-6 personen
+            - generic:
+              - generic: Start
+              - generic: Plant ideeën op het canvas, groepeer en voed ze met subtiele AI-suggesties.
+          - article "Cognitieve Coupé, in ontwikkeling":
+            - generic:
+              - generic: Get inspired & find needs
+              - generic: 1 persoon
+            - generic: In ontwikkeling
+          - article "Kernkompas, in ontwikkeling":
+            - generic:
+              - generic: Concretize vision & find core idea
+              - generic: 1-6 personen
+            - generic: In ontwikkeling
+          - article "Proceswortels, in ontwikkeling":
+            - generic:
+              - generic: Visualize and understand processes
+              - generic: 2-5 personen
+            - generic: In ontwikkeling
+          - article "Service Safari, in ontwikkeling":
+            - generic:
+              - generic: Play through & discuss service
+              - generic: 3-6 personen
+            - generic: In ontwikkeling
+          - article "Toekomstvenster, in ontwikkeling":
+            - generic:
+              - generic: Share & discuss your vision
+              - generic: 2-6 personen
+            - generic: In ontwikkeling
+        - img "HAN University of Applied Sciences"
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - heading "Stel jullie sessie in" [level=1]
+            - paragraph: Geef MOBUS context en stem de tafel af op de groep.
+          - generic:
+            - generic: Wat is het doel van deze sessie?
+            - textbox "Wat is het doel van deze sessie?":
+              - /placeholder: Bijv. nieuwe campagne-ideeën bedenken
+          - generic:
+            - generic:
+              - generic: Aantal deelnemers
+              - generic "Aantal deelnemers":
+                - button "Minder deelnemers"
+                - status: "3"
+                - button "Meer deelnemers"
+              - generic: Min. 1, max. 6 deelnemers
+            - generic:
+              - generic:
+                - generic: Geur
+                - generic:
+                  - checkbox "Geur"
+              - generic:
+                - generic: Geluid
+                - generic:
+                  - checkbox "Geluid" [checked]
+          - button "Start sessie"
+    - generic [ref=e13]:
+      - generic [ref=e14]:
+        - heading "Jullie oogst" [level=1] [ref=e15]
+        - paragraph [ref=e16]: Deze ideeën kregen samen het meeste draagvlak.
+        - region "Resultaat van de Oogstmarkt" [ref=e17]:
+          - generic "Samenvatting van de sessie" [ref=e19]:
+            - generic [ref=e20]:
+              - strong [ref=e21]: "0"
+              - text: ideeën
+            - generic [ref=e22]:
+              - strong [ref=e23]: "0"
+              - text: stickers
+            - generic [ref=e24]:
+              - strong [ref=e25]: "0"
+              - text: deelnemers
+            - time [ref=e26]
+        - generic [ref=e27]:
+          - button "Terug naar start" [ref=e28] [cursor=pointer]
+          - button "Oogst mailen" [ref=e30] [cursor=pointer]
+        - generic: Oogst succesvol!
+      - generic [ref=e33]:
+        - heading "Wil je de oogst toegestuurd krijgen?" [level=3] [ref=e34]
+        - generic [ref=e35]:
+          - textbox "Vul hier je e-mail in…" [active] [ref=e36]
+          - generic: Vul een geldig e-mailadres in
+        - button "Versturen" [ref=e37] [cursor=pointer]
+        - button "Nee, bedankt" [ref=e39] [cursor=pointer]
+    - generic:
+      - generic:
+        - heading "De oogst is binnen" [level=1]
+        - paragraph: Jullie gezamenlijke oogst is bewaard. Neem de gekozen ideeën mee naar de volgende stap.
+        - button "Terug naar start"

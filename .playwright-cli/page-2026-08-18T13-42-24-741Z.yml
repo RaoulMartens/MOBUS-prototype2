@@ -1,0 +1,21 @@
+- main "Live wandscherm van de MOBUS-sessie" [ref=e2]:
+  - region [ref=e4]:
+    - generic [ref=e5]:
+      - paragraph [ref=e6]:
+        - generic [ref=e8]: Oogstmarkt
+      - heading "Hoe maken we de buurt groener?" [level=1] [ref=e9]
+      - paragraph [ref=e10]: Jullie kiezen samen. Meer stickers laten een idee zichtbaar verder opbloeien.
+    - generic "Live sessiestatus" [ref=e11]:
+      - generic [ref=e13]:
+        - strong [ref=e14]: "9"
+        - text: ideeën
+      - generic [ref=e16]:
+        - strong [ref=e17]: "2"
+        - text: groepen
+      - generic [ref=e19]:
+        - strong [ref=e20]: "5"
+        - text: stickers
+  - generic [ref=e22]:
+    - heading "De tuin maakt zich klaar" [level=2] [ref=e23]
+    - paragraph [ref=e24]: Open de sessie op het tafelblad om samen te beginnen.
+  - generic [ref=e25]: Live verbonden
